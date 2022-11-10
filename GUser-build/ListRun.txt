@@ -1,0 +1,2 @@
+/data/siriusX/test/acquisition/run/run_0070.dat.30-03-22_10h19m01s
+/data/siriusX/test/acquisition/run/run_0070.dat.30-03-22_10h19m01s.1
