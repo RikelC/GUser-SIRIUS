@@ -54,7 +54,7 @@ dssdData::~dssdData(){
  */
 double dssdData::calculate_RC_constant(){
 	//Determination of gain
-	double y1, y2, tau=0.; int m =50;//50,60
+	double y1, y2, tau=0.; int m =200;//50,60
 	double range =0.;
 	int rmin = Max_pos+20;
 	int rmax = s1->TRACE_SIZE -m; 
