@@ -693,7 +693,7 @@ double digitalFilters::trapezoidal_filter_algorithm3(dssdData* const data, TH1* 
 	else if(s1->trap_flattop_mode == 4)
 		max_val = get_auto_max_val_trapezoidal(Trapezoidal);
 	//-------------
-	signalAmplitude = max_val*sampling_period /(RC_constant * (double)k);
+	signalAmplitude = max_val*sampling_period /(RC_constant * (double)k * trapezoidal_shaper_m2);
 	data->set_raw_energy(signalAmplitude);
 	return TMath::Abs(signalAmplitude);
 }
@@ -754,7 +754,7 @@ double digitalFilters::trapezoidal_filter_algorithm3(dssdData* const data, ushor
 	else if(s1->trap_flattop_mode == 4)
 		max_val = get_auto_max_val_trapezoidal(Trapezoidal);
 	//-------------
-	signalAmplitude = max_val*sampling_period /(RC_constant * (double)k);
+	signalAmplitude = max_val*sampling_period /(RC_constant * (double)k * trapezoidal_shaper_m2);
 	data->set_raw_energy(signalAmplitude);
 	return TMath::Abs(signalAmplitude);
 }
