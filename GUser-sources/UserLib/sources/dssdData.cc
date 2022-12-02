@@ -250,6 +250,7 @@ void dssdData::GetSignalInfo(){
 	signalHeight = TMath::Abs(double(max_val) - Baseline);
 	Max_pos = max_pos;
 
+	Trigger = Max_pos;
 	if(s1->trigger_def ==2){
 
 		int diff =0;  int m = 10;  
@@ -264,7 +265,8 @@ void dssdData::GetSignalInfo(){
 			if(signal_is < 0.){
 				if(diff_arr[i] > 0){
 					Trigger = i; break;
-				}}
+				}
+			}
 			else{
 
 				if(diff_arr[i]<0){Trigger = i; break;}
@@ -280,7 +282,7 @@ void dssdData::GetSignalInfo(){
 				Trigger = i; break;
 			}
 		}
-
+Trigger += 1;
 	}	
 
 	//calculate risetime
