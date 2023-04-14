@@ -17,6 +17,7 @@
 #include "dssdDataPoint.h"
 #include "dssdPixel.h"
 #include "TH1.h"
+#include "TGraph.h"
 #include <vector>
 #include <algorithm>
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
@@ -39,9 +40,11 @@ class dssdEvent
 
 		dssdEvent();
 		~dssdEvent();
-		std::vector<dssdPixel> construct(std::vector<dssdDataPoint> &dataSet);
+		std::vector<dssdPixel> construct(std::vector<dssdDataPoint> &dataSet,TGraph* gr1, TGraph* gr, TGraph *gr2);
 		std::vector<dssdPixel> construct(std::vector<dssdDataPoint> &dataSet, TH1 *h_ff, TH1 *h_fb, TH1 *h_bf, TH1 *h_bb);
+		std::vector<dssdPixel> construct(std::vector<dssdDataPoint> &dataSet);
 		dssdPixel determine_dssd_pixel(std::vector<dssdDataPoint> &myEvent);
+void SortInTime(std::vector<dssdDataPoint> &dataSet);
 
 };
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------

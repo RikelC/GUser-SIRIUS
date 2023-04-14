@@ -18,7 +18,7 @@ bool compareEnergy(dssdDataPoint const & i, dssdDataPoint const & j)
 //! functions for sorting algorithms in time
 bool compareTime(dssdDataPoint const & i, dssdDataPoint const & j)
 {
-	return std::tie(i.time, i.energy, i.strip) < std::tie(j.time, j.energy, j.strip);
+	return std::tie(i.time,  i.strip, i.energy) < std::tie(j.time, j.strip, j.energy);
 }
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 //! Constructor 
@@ -41,7 +41,7 @@ dssdEvent::~dssdEvent(){
 }
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 //! Making of DSSD pixels
-std::vector<dssdPixel> dssdEvent::construct(std::vector<dssdDataPoint> &dataSet){
+std::vector<dssdPixel> dssdEvent::construct(std::vector<dssdDataPoint> &dataSet, TGraph* gr1, TGraph *gr, TGraph* gr2){
 	std::vector<dssdPixel> eventSet;
 	//-----------------------
 	// Add previous tempEvent
@@ -57,24 +57,44 @@ std::vector<dssdPixel> dssdEvent::construct(std::vector<dssdDataPoint> &dataSet)
 	}
 	//------------------------
 	if(!dataSet.empty()){
+		for(ushort i = 0;i < dataSet.size();i++){
+			gr1->SetPoint(i,i,dataSet[i].get_time());
+		}
 		//---------sort the events in time-----------
 		std::sort(dataSet.begin(), dataSet.end(),compareTime);
 		//------------------reconstruct events based on coincidence------------
+
 		myEvent.push_back(dataSet[0]);
+		//cout<<"start-----------------------------"<<endl;
+		//cout<<"dt windows ff "<<s1->ff_window<<"  fb "<<s1->fb_window<<"  bf "<<s1->bf_window<<"  bb "<<s1->bb_window<<endl;
+		//cout<<"dataSet at "<<0<<" time "<<dataSet[0].get_time()<<"  strip "<<dataSet[0].get_strip()<<"  energy "<<dataSet[0].get_energy()<<endl;
+		gr->SetPoint(0,0, dataSet[0].get_time());
 		for(ushort i = 1;i < dataSet.size();i++){
+
+			//cout<<"dataSet at "<<i<<" time "<<dataSet[i].get_time()<<"  strip "<<dataSet[i].get_strip()<<"  energy "<<dataSet[i].get_energy()<<endl;
 			start_new_event = false;
+
+
+			llint td =static_cast<llint>( dataSet[i].get_time() - dataSet[i-1].get_time());
+			gr->SetPoint(i,i, dataSet[i].get_time());
+			gr2->SetPoint(i,i, td);
+			//if(td < 0) cout<<" neg time "<<td<<endl;
 			//---------------------delta T--------
 			if(dataSet[i].is_frontStrip()){
 				if(dataSet[i-1].is_frontStrip()){
 					td_ff =static_cast<llint>( dataSet[i].get_time() - dataSet[i-1].get_time());
+					//cout<<" ff "<<" dt "<<td_ff<<endl;					
 					if(TMath::Abs(td_ff) <= s1->ff_window){
 						myEvent.push_back(dataSet[i]);
+						//cout<<"data pused ff"<<endl;
 					}else start_new_event = true;
 
 				}else{
 					td_fb =  static_cast<llint>(dataSet[i].get_time() - dataSet[i-1].get_time());
+					//cout<<" fb "<<" dt "<<td_fb<<endl;					
 					if(TMath::Abs(td_fb) <= s1->fb_window){
 						myEvent.push_back(dataSet[i]);
+						//cout<<"data pused fb"<<endl;
 					}else start_new_event = true;    
 				}
 
@@ -82,22 +102,27 @@ std::vector<dssdPixel> dssdEvent::construct(std::vector<dssdDataPoint> &dataSet)
 			else{
 				if(dataSet[i-1].is_frontStrip()){
 					td_bf =  static_cast<llint>(dataSet[i].get_time() -  dataSet[i-1].get_time());
+					//cout<<" bf "<<" dt "<<td_bf<<endl;					
 					if(TMath::Abs(td_bf) <= s1->bf_window){
 						myEvent.push_back(dataSet[i]);
+						//cout<<"data pused bf"<<endl;
 					}else start_new_event = true;
 				}
 				else{
 					td_bb =  static_cast<llint>(dataSet[i].get_time() - dataSet[i-1].get_time());
+					//cout<<" bb "<<" dt "<<td_bb<<endl;					
 					if(TMath::Abs(td_bb) <=s1->bb_window){
 						myEvent.push_back(dataSet[i]);
+						//cout<<"data pused bb"<<endl;
 					}else start_new_event = true;
 				}
 			}
 
 			//---------------make pixel-----------
 			if(start_new_event == true){
-				ePoint = determine_dssd_pixel(myEvent);
-				eventSet.push_back(ePoint);				
+				dssdPixel ePoint = determine_dssd_pixel(myEvent);
+				//cout<<"Pixel X "<<ePoint.get_X()<<"  EX "<<ePoint.get_energyX()<<"  Y "<<ePoint.get_Y()<<"  EY "<<ePoint.get_energyY()<<"  time "<<ePoint.get_time()<<endl;
+				if(ePoint.get_X() >= 0 && ePoint.get_Y() >= 0) eventSet.push_back(ePoint);				
 				//---------push the new point-----
 				myEvent.push_back(dataSet[i]);
 			}
@@ -106,11 +131,13 @@ std::vector<dssdPixel> dssdEvent::construct(std::vector<dssdDataPoint> &dataSet)
 		// treatment of the last event
 		// ----------------------------
 		ePoint = determine_dssd_pixel(myEvent);
-		eventSet.push_back(ePoint);
+		//cout<<"Pixel X "<<ePoint.get_X()<<"  EX "<<ePoint.get_energyX()<<"  Y "<<ePoint.get_Y()<<"  EY "<<ePoint.get_energyY()<<"  time "<<ePoint.get_time()<<endl;
+		if(ePoint.get_X() >= 0 && ePoint.get_Y() >= 0) 	eventSet.push_back(ePoint);
 		//------------clear the data container--
 		dataSet.clear();
 	}
 
+	//cout<<"end-----------------------------"<<endl;
 	return eventSet;
 }
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
@@ -194,6 +221,84 @@ std::vector<dssdPixel> dssdEvent::construct(std::vector<dssdDataPoint> &dataSet,
 
 	return eventSet;
 }
+//---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
+//! Making of DSSD pixels
+std::vector<dssdPixel> dssdEvent::construct(std::vector<dssdDataPoint> &dataSet){
+	std::vector<dssdPixel> eventSet;
+	//-----------------------
+	// Add previous tempEvent
+	//------------------------
+
+	if(tempEvent.size() >0){
+
+		if(tempEvent.size() < s1->buffer_size) dataSet.insert (dataSet.begin(),tempEvent.begin(),tempEvent.end());
+		else dataSet.insert (dataSet.begin(),tempEvent.begin()+(s1->buffer_size/2),tempEvent.end());
+		//cout<<"dataSet size "<<dataSet.size()<<"  temp size "<<tempEvent.size()<<" pixels "<<pixel_counter<<endl;
+		tempEvent.clear();
+		//pixel_counter =0;
+	}
+	if(!dataSet.empty()){
+		//---------sort the events in time-----------
+		std::sort(dataSet.begin(), dataSet.end(),compareTime);
+		//------------------reconstruct events based on coincidence------------
+		myEvent.push_back(dataSet[0]);
+		for(ushort i = 1;i < dataSet.size();i++){
+			start_new_event = false;
+			//cout<<"time "<<dataSet[i].time <<"  strip "<<dataSet[i].strip<<"  energy "<<dataSet[i].energy<<endl;
+			//---------------------delta T--------
+			if(dataSet[i].is_frontStrip()){
+				if(dataSet[i-1].is_frontStrip()){
+					td_ff =static_cast<llint>( dataSet[i].get_time() - dataSet[i-1].get_time());
+					if(TMath::Abs(td_ff) <= s1->ff_window){
+						myEvent.push_back(dataSet[i]);
+					}else start_new_event = true;
+
+				}else{
+					td_fb =  static_cast<llint>(dataSet[i].get_time() - dataSet[i-1].get_time());
+					if(TMath::Abs(td_fb) <= s1->fb_window){
+						myEvent.push_back(dataSet[i]);
+					}else start_new_event = true;    
+				}
+
+			}
+			else{
+				if(dataSet[i-1].is_frontStrip()){
+					td_bf =  static_cast<llint>(dataSet[i].get_time() -  dataSet[i-1].get_time());
+					if(TMath::Abs(td_bf) <= s1->bf_window){
+						myEvent.push_back(dataSet[i]);
+					}else start_new_event = true;
+				}
+				else{
+					td_bb =  static_cast<llint>(dataSet[i].get_time() - dataSet[i-1].get_time());
+					if(TMath::Abs(td_bb) <=s1->bb_window){
+						myEvent.push_back(dataSet[i]);
+					}else start_new_event = true;
+				}
+			}
+
+			//---------------make pixel-----------
+			if(start_new_event == true){
+				//cout<<"myEvent size "<<myEvent.size()<<endl;
+				ePoint = determine_dssd_pixel(myEvent);
+				eventSet.push_back(ePoint);				
+				//---------push the new point-----
+				myEvent.push_back(dataSet[i]);
+			}
+		}
+		//---------------------------
+		//Treatment of the last event
+		//---------------------------
+		//cout<<"myEvent size "<<myEvent.size()<<endl;
+		ePoint = determine_dssd_pixel(myEvent);
+		eventSet.push_back(ePoint);
+		//------------clear the data container--
+		dataSet.clear();
+
+	}
+
+	return eventSet;
+}
+//---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 //-------------
 // make pixel
@@ -327,3 +432,8 @@ dssdPixel dssdEvent::determine_dssd_pixel(std::vector<dssdDataPoint> &myEvent){
 }
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 
+void dssdEvent::SortInTime(std::vector<dssdDataPoint> &dataSet){
+	std::sort(dataSet.begin(), dataSet.end(),compareTime);
+
+
+}

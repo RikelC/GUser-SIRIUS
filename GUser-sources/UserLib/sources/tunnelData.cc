@@ -36,6 +36,11 @@ tunnelData::~tunnelData(){
 
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 //! Get current tunnel macro pixel
+tunnelMacroPixel tunnelData::get_macroPixel(){
+	std::pair<int,int> key = std::make_pair(boardID, channelID);
+	return macroPixelMap[key];
+}
+
 tunnelMacroPixel tunnelData::get_macroPixel(int * const p_board, int * const p_channel){
 	std::pair<int,int> key = std::make_pair(*p_board, *p_channel);
 	return macroPixelMap[key];

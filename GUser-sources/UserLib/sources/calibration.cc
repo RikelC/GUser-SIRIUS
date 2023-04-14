@@ -166,34 +166,34 @@ double calibration::perform(dssdData* const data){
 
 	if(data->get_stripnumber() >=0 && data->get_stripnumber() < 128){
 		if(s1->FRONT_FPCSA_GAIN_MODE == "HG"){
-			calE = ((std::abs(data->get_raw_energy()) + rand->Uniform(0,1)) * calib_m_hg[b][ch]) + calib_c_hg[b][ch];
+			calE = ((std::abs(data->get_raw_energy())) * calib_m_hg[b][ch]) + calib_c_hg[b][ch];
 		}
 		else if(s1->FRONT_FPCSA_GAIN_MODE == "LG"){
-			calE = ((std::abs(data->get_raw_energy()) + rand->Uniform(0,1)) * calib_m_lg[b][ch]) + calib_c_lg[b][ch];
+			calE = ((std::abs(data->get_raw_energy())) * calib_m_lg[b][ch]) + calib_c_lg[b][ch];
 		}
 		else if(s1->FRONT_FPCSA_GAIN_MODE == "AUTO"){
 			if(data->gain_switched() ){
-				calE = ((std::abs(data->get_raw_energy()) + rand->Uniform(0,1)) * calib_m_lg[b][ch]) + calib_c_lg[b][ch];
+				calE = ((std::abs(data->get_raw_energy())) * calib_m_lg[b][ch]) + calib_c_lg[b][ch];
 			}
 			else{
-				calE = ((std::abs(data->get_raw_energy()) + rand->Uniform(0,1)) * calib_m_hg[b][ch]) + calib_c_hg[b][ch];
+				calE = ((std::abs(data->get_raw_energy())) * calib_m_hg[b][ch]) + calib_c_hg[b][ch];
 			}
 
 		}
 	}
 	else if(data->get_stripnumber() > 127 && data->get_stripnumber() < 256){
 		if(s1->BACK_FPCSA_GAIN_MODE == "HG"){
-			calE = ((data->get_raw_energy() + rand->Uniform(0,1)) * calib_m_hg[b][ch]) + calib_c_hg[b][ch];
+			calE = ((data->get_raw_energy()) * calib_m_hg[b][ch]) + calib_c_hg[b][ch];
 		}
 		else if(s1->BACK_FPCSA_GAIN_MODE == "LG"){
-			calE = ((data->get_raw_energy() + rand->Uniform(0,1)) * calib_m_lg[b][ch]) + calib_c_lg[b][ch];
+			calE = ((data->get_raw_energy()) * calib_m_lg[b][ch]) + calib_c_lg[b][ch];
 		}
 		else if(s1->BACK_FPCSA_GAIN_MODE == "AUTO"){
 			if(data->gain_switched() ){
-				calE = ((data->get_raw_energy() + rand->Uniform(0,1)) * calib_m_lg[b][ch]) + calib_c_lg[b][ch];
+				calE = ((data->get_raw_energy()) * calib_m_lg[b][ch]) + calib_c_lg[b][ch];
 			}
 			else{
-				calE = ((data->get_raw_energy() + rand->Uniform(0,1)) * calib_m_hg[b][ch]) + calib_c_hg[b][ch];
+				calE = ((data->get_raw_energy()) * calib_m_hg[b][ch]) + calib_c_hg[b][ch];
 			}
 
 		}
@@ -210,9 +210,23 @@ double calibration::perform(tunnelData* const data){
 	int b = data->get_boardIdx();
 	int ch = data->get_channelID();
 
-	double calE = ((std::abs(data->get_raw_energy()) + rand->Uniform(0,1)) * calib_m_t[b][ch]) + calib_c_t[b][ch];
+	double calE = ((std::abs(data->get_raw_energy()) ) * calib_m_t[b][ch]) + calib_c_t[b][ch];
 
 	data->set_calibrated_energy(calE);
 	return calE;
 }
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
+//! Calibration of Ge
+/*! Perform Calibration of the tunnelData object.
+*/
+
+double calibration::perform(geData* const data){
+	int b = data->get_boardIdx();
+	int ch = data->get_channelID();
+
+	double calE = ((std::abs(data->get_raw_energy()) ) * calib_m_t[b][ch]) + calib_c_t[b][ch];
+
+	data->set_calibrated_energy(calE);
+	return calE;
+}
+//---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------/---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------

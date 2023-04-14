@@ -99,6 +99,14 @@ myGlobal* myGlobal::getInstance() {
 	}
 	return instance;
 }
+
+myGlobal* myGlobal::getInstance(int mode) {
+	if(!instance) {
+		instance = new myGlobal(mode);
+		destroyer.set_myGlobal(instance);
+	}
+	return instance;
+}
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 //! Constructor
 /*!
@@ -124,6 +132,28 @@ myGlobal::myGlobal(){
 	NofMacroPixels = 24 * NDETECTOR_TUNNEL;
 
 }
+myGlobal::myGlobal(int mode){
+	// read the configuration file
+	readMode = mode;
+	readRunConfig();
+	//-initialize
+	frameName[0]= "Cobo";
+	frameName[1]= "Eby";
+	frameName[2]= "Hello";
+	frameName[3]= "xml header";
+	frameName[4]= "rea trace";
+	frameName[5]= "rea gen";
+	frameName[6]= "sirius";
+	frameName[7]= "else";
+	boardIndex_DSSD = new int[200];
+	boardIndex_Tunnel = new int[200];
+	for(int i = 0; i < NBOARDS_DSSD; i++) boardIndex_DSSD[boardList_DSSD[i]] = i;
+	for(int i = 0; i < NBOARDS_TUNNEL; i++) boardIndex_Tunnel[boardList_Tunnel[i]] = i;
+	NSTRIPS_DSSD = NBOARDS_DSSD * NCHANNELS;
+	NofMacroPixels = 24 * NDETECTOR_TUNNEL;
+
+}
+
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 //! Destructor
 /*/
@@ -166,7 +196,10 @@ void myGlobal::readRunConfig(){
 	tunnelFormat.clear();
 
 	ifstream file;
-	file.open("ConfigFiles/Run.config", std::iostream::in);
+	if(readMode == 1)file.open("ConfigFiles/Run_online.config", std::iostream::in);
+	else if(readMode == 2)file.open("ConfigFiles/Run_offline.config", std::iostream::in);
+	else
+		file.open("ConfigFiles/Run.config", std::iostream::in);
 	std::string line, variable, value; bool eqality_sign_found; 
 	if(file.is_open()){
 		while(file.good() && !file.eof()){
@@ -206,8 +239,21 @@ void myGlobal::readRunConfig(){
 
 			if(!variable.empty() && !value.empty()){
 				convert_to_upper_case(variable);
+				if(variable.compare("SAVETTREEFILE")==0){
+					convert_to_upper_case(value);
+					if(value == "YES")
+						fsaveTree = true;
+					else fsaveTree = false;
+				}
+				else if(variable.compare("SAVEHISTOGRAMFILE")==0){
+					convert_to_upper_case(value);
+					if(value == "YES")
+						fsaveHisto = true;
+					else fsaveHisto = false;
+				}
+
 				//verbose level
-				if(variable.compare("VERBOSELEVEL")==0)
+				else if(variable.compare("VERBOSELEVEL")==0)
 					fverbose = std::stoi(value);
 				//Data Merged? 
 				else if(variable.compare("DATAMERGED")==0){
@@ -232,8 +278,6 @@ void myGlobal::readRunConfig(){
 				else if(variable.compare("TRACESIZE")==0)
 					TRACE_SIZE = std::stoi(value);
 				//FPCSA gain
-				else if(variable.compare("MILIVOLTTOADCCH")==0)
-					miliVolt_to_ADC_ch = std::stod(value);
 				else if(variable.compare("BACKFPCSAGAINMODE")==0)
 				{
 					convert_to_upper_case(value);
@@ -244,8 +288,7 @@ void myGlobal::readRunConfig(){
 				else if(variable.compare("BACKLOWGAIN")==0)
 					backLowGain = std::stod(value);
 				else if(variable.compare("BACKFPCSALEVELCOMPARATOR")==0){
-					back_FPCSA_level_comparator = std::stoi(value);
-					back_gainSwitch_threshold = miliVolt_to_ADC_ch * (double)back_FPCSA_level_comparator; 
+					back_gainSwitch_threshold =  std::stoi(value);
 				}
 				else if(variable.compare("FRONTFPCSAGAINMODE")==0)
 				{
@@ -257,8 +300,7 @@ void myGlobal::readRunConfig(){
 				else if(variable.compare("FRONTLOWGAIN")==0)
 					frontLowGain = std::stod(value);
 				else if(variable.compare("FRONTFPCSALEVELCOMPARATOR")==0){
-					front_FPCSA_level_comparator = std::stoi(value);
-					front_gainSwitch_threshold = miliVolt_to_ADC_ch * (double)front_FPCSA_level_comparator; 
+					front_gainSwitch_threshold = std::stoi(value);
 				}	
 				else if(variable.compare("MOVINGWINDOWFORGAINSWITCHCALCULATION")==0)
 					mv_window_calcul_gainSwitch = std::stoi(value);
@@ -393,6 +435,12 @@ void myGlobal::readRunConfig(){
 				else if(variable.compare("MB4P5BOARD2")==0){
 					dssdFormat += "," + value;
 				}
+				//Tracker DSSD
+				else if(variable.compare("TRACKERNUMEXO2")==0){
+					dssdFormat += "," + value;
+				}
+
+
 				// DSSD calibration file				
 				else if(variable.compare("DSSDHIGHGAINCALIBRATIONFILE")==0)
 					dssd_HGcalib_filename = value;
@@ -458,6 +506,28 @@ void myGlobal::readRunConfig(){
 		boardList_DSSD.push_back(board);
 		temp.clear();
 	}
+
+	//----------------------
+	// check if the boards are duplicate
+	// -----------------------
+	//Check for double value if the user had made a mistake in defining the run numbers
+	std::vector<int>common_runs;
+	for(unsigned int n =0; n<boardList_DSSD.size();n++){	
+		unsigned int counter =0;
+		for(unsigned int m =n; m<boardList_DSSD.size();m++){
+			if(n != m){
+				if(boardList_DSSD[n] == boardList_DSSD[m]){counter++; common_runs.push_back(m);}
+			}
+		}
+		n += counter;
+	}	
+	//remove the common runs
+	if(common_runs.size() >0){
+		unsigned int idx =0;
+		for(unsigned int k =0; k<common_runs.size();k++){ boardList_DSSD.erase(boardList_DSSD.begin()+common_runs[k]-idx);idx++;}
+		common_runs.clear();
+	}
+
 	NBOARDS_DSSD = boardList_DSSD.size();
 	list.clear();
 	//tunnel list
@@ -468,6 +538,30 @@ void myGlobal::readRunConfig(){
 		boardList_Tunnel.push_back(board);
 		temp.clear();
 	}
+
+	//----------------------
+	// check if the boards are duplicate
+	// -----------------------
+	//Check for double value if the user had made a mistake in defining the run numbers
+	//std::vector<int>common_runs;
+	for(unsigned int n =0; n<boardList_Tunnel.size();n++){	
+		unsigned int counter =0;
+		for(unsigned int m =n; m<boardList_Tunnel.size();m++){
+			if(n != m){
+				if(boardList_Tunnel[n] == boardList_Tunnel[m]){counter++; common_runs.push_back(m);}
+			}
+		}
+		n += counter;
+	}	
+	//remove the common runs
+	if(common_runs.size() >0){
+		unsigned int idx =0;
+		for(unsigned int k =0; k<common_runs.size();k++){ boardList_Tunnel.erase(boardList_Tunnel.begin()+common_runs[k]-idx);idx++;}
+		common_runs.clear();
+	}
+
+
+
 	NBOARDS_TUNNEL = boardList_Tunnel.size();
 	list.clear();
 	if(NDETECTOR_TUNNEL == 1 || NDETECTOR_TUNNEL == 10 || NDETECTOR_TUNNEL == 100 || NDETECTOR_TUNNEL == 1000) NDETECTOR_TUNNEL = 1;
@@ -486,6 +580,7 @@ void myGlobal::readRunConfig(){
 			}
 		}
 	}
+
 	for(int i =0; i < boardList_Tunnel.size(); i++){
 		for(int j =0; j < boardList_Tunnel.size(); j++){
 			if(i != j && boardList_Tunnel[i] == boardList_Tunnel[j]){
@@ -496,6 +591,8 @@ void myGlobal::readRunConfig(){
 		}
 	}
 	if(fverbose >1){
+		cout<<"save TTree = "<<int(fsaveTree)<<endl;
+		cout<<"save Histo = "<<int(fsaveHisto)<<endl;
 		cout<<"verbose level = "<<fverbose<<endl;
 		//cout<<"save spectra if killed = "<<save_spec_if_killed<<endl;
 		cout<<"data merged = "<<int(data_merged)<<endl;
@@ -505,15 +602,12 @@ void myGlobal::readRunConfig(){
 		cout<<"number of smapels to be ignored at the end  = "<<nEnd_trace<<endl;
 		cout<<"trace size = "<<TRACE_SIZE<<endl;
 		//Gain related
-		cout<<"mili volt to ADC ch = "<<miliVolt_to_ADC_ch<<endl;
 		cout<<"Back FPCSA Gain mode = "<<BACK_FPCSA_GAIN_MODE<<endl;
 		cout<<"Back high Gain = "<<backHighGain<<endl;
 		cout<<"Back low Gain = "<<backLowGain<<endl;
-		cout<<"Back FPCSA comparator level = "<<back_FPCSA_level_comparator<<endl;
 		cout<<"Front FPCSA Gain mode = "<<FRONT_FPCSA_GAIN_MODE<<endl;
 		cout<<"Front high Gain = "<<frontHighGain<<endl;
 		cout<<"Front low Gain = "<<frontLowGain<<endl;
-		cout<<"Front FPCSA comparator level = "<<front_FPCSA_level_comparator<<endl;
 		//gain switching
 		cout<<"moving window gain switch calculation = "<< mv_window_calcul_gainSwitch<<endl;
 		cout<<"front gain switch threhold in ADC ch = "<< front_gainSwitch_threshold<<endl;

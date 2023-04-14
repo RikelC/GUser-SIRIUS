@@ -9,7 +9,7 @@
 #define tunnelMacroPixel_h 1
 #include "tunnelPixel.h"
 #include <vector>
-
+#include <algorithm>
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 class tunnelMacroPixel
 {
@@ -38,17 +38,42 @@ class tunnelMacroPixel
 		/*! Set detector number
 		*/		
 		void set_detector(int n){detector = n;}
+
 		/*! Get N of the macro pixel.
 		*/
-		char get_N()const{return N;}
+		int get_N()const{return N;}
 
 		/*! Get detector number of the macro pixel.
 		*/
-		char get_detector()const{return detector;}
+		int get_detector()const{return detector;}
 
-		/*! A vector containing the physical sub pixels associated to this macro pixel.
+		/*! a vector containing the physical sub pixels associated to this macro pixel.
 		*/
-		vector<tunnelPixel> pixels; 
+		std::vector<tunnelPixel> pixels; 
+		/*!  Reset values
+		 * */
+		void clear(){
+			N = -100;
+			detector = -100;
+			name = '?';
+			pixels.clear();
+		}
+
+
+		tunnelMacroPixel& operator=(const tunnelMacroPixel& other){
+
+			if(this == &other) return *this;
+
+			name = other.get_name();
+			N = other.get_N();
+			detector = other.get_detector();
+			pixels.clear();
+			std::copy(other.pixels.begin(), other.pixels.end(),
+					std::back_inserter(pixels));
+
+			return *this;
+		}
+
 };
 #endif
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------

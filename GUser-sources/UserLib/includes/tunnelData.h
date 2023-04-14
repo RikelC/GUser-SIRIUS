@@ -21,7 +21,9 @@ class tunnelData : public numexo2Data
 	public:
 		tunnelData();
 		~tunnelData();	
+		tunnelMacroPixel get_macroPixel();	
 		tunnelMacroPixel get_macroPixel(int * const, int * const);	
+
 		char get_macroPixelName(int * const p_board, int * const p_channel);
 		int get_macroPixelPhysicalNumber(int * const p_board, int * const p_channel);
 		int get_tunnelDetectorNumber(int * const p_board, int * const p_channel);

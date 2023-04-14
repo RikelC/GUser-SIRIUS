@@ -12,7 +12,7 @@
 */
 dssdData::dssdData(){
 	map_stripNumber();
-	trace = new ushort[s1->TRACE_SIZE];
+	//trace = new ushort[s1->TRACE_SIZE];
 	if(s1->trigger_def ==2)diff_arr = new int[s1->TRACE_SIZE];
 	gain = 0;
 	//extracted data
@@ -25,6 +25,8 @@ dssdData::dssdData(){
 	DecayTime = 0;
 	SaturationTime = 0;		
 	Max_pos = 0;
+	Min_pos = 0;
+	Min_pos2 = 0;
 	Trigger = 0;
 	cfd_time = 0;
 	gain_switch_flag = 0;
@@ -34,15 +36,14 @@ dssdData::dssdData(){
 	saturated = 0;
 	noisy_signal = 0;
 	fluctuation_distance = 0;
-
+	for(int i=0; i < 992; i++)trace[i]=0;
 }
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 //! Destructor
 /*! Clear the heap memory.
 */
 dssdData::~dssdData(){
-
-	delete [] trace;
+	//	delete [] trace;
 	stripMap.clear();	
 	if(s1->trigger_def == 2) delete [] diff_arr;
 }
@@ -54,7 +55,7 @@ dssdData::~dssdData(){
  */
 double dssdData::calculate_RC_constant(){
 	//Determination of gain
-	double y1, y2, tau=0.; int m =200;//50,60
+	double y1, y2, tau=0.; int m =50;//50,60
 	double range =0.;
 	int rmin = Max_pos+20;
 	int rmax = s1->TRACE_SIZE -m; 
@@ -112,25 +113,32 @@ int dssdData::check_gain_switching(){
 	int m = 10; 	
 	int max =0; int min =0; 
 	int max_pos_diff = 0, min_pos_diff = 0;
-
+	gain_switch_flag = false;
 	for(int n = 0; n < s1->TRACE_SIZE -10; n++){
 		if(n >= m)
-			diff = trace[n] - trace[n-m];
+			diff = static_cast<int>(trace[n] - trace[n-m]);
 
-		if(n > 400 && n < 600){
+		if(n > 400 && n < 700){
 			if(max < diff) { max = diff;  max_pos_diff = (int)n;}
 			if(min > diff) { min = diff;  min_pos_diff = (int)n;}
 		}
 	}
 
-	int r = max - min;
+	int r = ( max - min);
+	int rp = ( max_pos_diff - min_pos_diff);
+	sig_diff = r;
 
+	int diff_extremum = static_cast<int>(Min_pos2 - Max_pos);
 	gain_switch_flag = 0;
 
-	if(stripnumber < 128 && r > s1->front_gainSwitch_threshold) gain_switch_flag = 1;
-
-	else if(stripnumber > 127 && r > s1->back_gainSwitch_threshold) gain_switch_flag = 1;
-
+	if(signal_is < 0){
+		if(TMath::Abs(diff_extremum) < 20 && r > s1->front_gainSwitch_threshold) gain_switch_flag = 1;
+	}
+	else{
+		if(TMath::Abs(diff_extremum) < 20 && r > s1->back_gainSwitch_threshold) gain_switch_flag = 1;
+	}
+	//	if(gain_switch_flag)cout<<" gain switched .. diff "<<diff_extremum<<" r "<<r<<"  rp "<<rp<<endl;
+	//	else cout<<"  not switched .. diff "<<diff_extremum<<" r "<<r<<"  rp "<<rp<<endl;
 	inflection_point =0;
 	reflection_point =0;
 	if(gain_switch_flag){
@@ -185,16 +193,17 @@ int dssdData::check_gain_switching(){
 //! Measure observables from the trace 
 void dssdData::GetSignalInfo(){
 	//Reset the values
+	reset();
+
+
+
+	/*********
+
+	  Do after
+	  */
+
 	stripnumber = get_stripnumber(&boardID,&channelID);
-	Baseline = 0;
-	signal_is=0;
-	Noise=0;//sigma
-	signalHeight=0;//max val - baseline
-	RiseTime=0;
-	Max_pos=0;
-	Trigger=0;
-	DecayTime =0;
-	SaturationTime =0;
+
 	int n1 = 10;
 	int n2 = s1->TRACE_SIZE -200;
 	//calculate baseline
@@ -220,7 +229,7 @@ void dssdData::GetSignalInfo(){
 	//Get max value and max pos
 	ushort max_val = trace[0];
 	ushort max_pos = 0;
-	double min_temp =0.; ushort Min_pos =0;
+	double min_temp =0.; 
 	for (ushort i = n1; i < n2; i++) {
 		if(signal_is > 0.){
 			if(trace[i] > max_val){
@@ -249,8 +258,19 @@ void dssdData::GetSignalInfo(){
 	}
 	signalHeight = TMath::Abs(double(max_val) - Baseline);
 	Max_pos = max_pos;
+	// Min pos 2
+	//
 
-	Trigger = Max_pos;
+	double min_val = signalHeight;
+	temp =0.; 
+	for (ushort i = Max_pos; i < Max_pos+30; i++) {
+		temp = TMath::Abs( trace[i] - Baseline);
+		if(temp < min_val){
+			min_val = temp;
+			Min_pos2 = i;
+		}
+	}
+
 	if(s1->trigger_def ==2){
 
 		int diff =0;  int m = 10;  
@@ -265,8 +285,7 @@ void dssdData::GetSignalInfo(){
 			if(signal_is < 0.){
 				if(diff_arr[i] > 0){
 					Trigger = i; break;
-				}
-			}
+				}}
 			else{
 
 				if(diff_arr[i]<0){Trigger = i; break;}
@@ -282,7 +301,7 @@ void dssdData::GetSignalInfo(){
 				Trigger = i; break;
 			}
 		}
-Trigger += 1;
+
 	}	
 
 	//calculate risetime

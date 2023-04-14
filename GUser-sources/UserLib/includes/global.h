@@ -30,7 +30,11 @@ class myGlobal
 {
 	public:
 		static myGlobal *getInstance(); /*!< A static instance of the class. It is called by myGlobal* s1 = myGlobal::getInstance();*/
+		static myGlobal *getInstance(int mode); /*!< A static instance of the class. It is called by myGlobal* s1 = myGlobal::getInstance();*/
 		//some general variables
+
+		bool fsaveTree;
+		bool fsaveHisto;
 		int fverbose; /*!< verbose level for printing information.*/
 		bool data_merged;/*!< Data merging flag. If MFMMerger library is used to merge different data frames, it is set as True else, it is false by default. When Merger is used the DSSD pixels and correlations between the events are made within the Guser::UserMergeFrame(MFMCommonFrame * commonframe) else the data are temporarily stored in a buffer of size buffer_size to make correlations. */
 		uint buffer_size;/*!< size of the buffer when MFMMerger is not used. */
@@ -41,18 +45,14 @@ class myGlobal
 		int nEnd_trace;/*!< The number of samples to be ignored at the end of the trace. */
 		int TRACE_SIZE;/*!< The size of the trace used for actual treatment of the signal. Note nStart_trace + nEnd_trace + TRACE_SIZE = 992 samples. */
 
-		//gain
-		double miliVolt_to_ADC_ch;
 		//back
 		std::string BACK_FPCSA_GAIN_MODE;/*!< DSSD Back side FPCSA gain mode (lg: Low Gain, hg: High Gain, auto: Auto Gain)*/
 		double backHighGain;/*!< High gain value in Capacitance (pF) */
 		double backLowGain;/*!< Low gain value in Capacitance (pF) */
-		ushort back_FPCSA_level_comparator;/*!< FPCSA comparator level for gain switch in mV default is 3000 mV*/ 
 		//front
 		std::string FRONT_FPCSA_GAIN_MODE; /*!< DSSD Front side FPCSA gain mode.*/
 		double frontHighGain;/*!< High gain value in Capacitance (pF)*/
 		double frontLowGain;/*!< Low Gain value in Capacitance (pF)*/
-		ushort front_FPCSA_level_comparator; /*!< FPCSA comparator level. */
 		//gain switching
 		ushort mv_window_calcul_gainSwitch;/*!< moving window size in samples to determine the gain switching */
 		ushort front_gainSwitch_threshold; /*!< Threshold level for Front side gain switch */
@@ -129,10 +129,12 @@ class myGlobal
 		bool from_dssd(int &board);
 		bool from_tunnel(int &board);
 	private:
+		int readMode;
 		static myGlobal *instance;
 		static myGlobalDestroyer destroyer;
 	protected:
 		myGlobal();
+		myGlobal(int mode);
 		virtual ~myGlobal();
 		friend class myGlobalDestroyer;
 

@@ -15,6 +15,10 @@
 #include <iostream>
 #include  "TRandom3.h"
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
+/*!
+ * Calibration class 
+ *
+ */
 class calibration
 {
 	private:
@@ -34,6 +38,8 @@ class calibration
 		void assign_ge_calibration_parameters();
 		double perform(dssdData* const);
 		double perform(tunnelData* const);
+		double perform(geData* const);
+//		double perform(trackerData* const);
 };
 #endif
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
