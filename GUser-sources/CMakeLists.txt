@@ -71,7 +71,8 @@ include_directories(${UserLibIncludes} ${UserLibSources})
 #----------------------------
 # Source and header files
 #--------------------------
-set(SOURCES  GUserDict.C GUser.C )
+set(SOURCES  GUserDict.C GUser.C GUserHistograms.C )
+#set(SOURCES  GUserDict.C GUser.C )
 
 set(HEADERS GUserDict.h GUser.h )
 
