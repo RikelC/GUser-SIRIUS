@@ -249,6 +249,10 @@ void MyGlobal::ReadRunConfigFile(){
 					acquisitionMode = value;
 				}
 
+				else if(variable.compare("TREETYPE")==0){
+					ConvertToUpperCase(value);
+					fTreeType = value;
+				}
 
 				else if(variable.compare("SAVETTREEFILE")==0){
 					ConvertToUpperCase(value);
@@ -501,7 +505,7 @@ void MyGlobal::ReadRunConfigFile(){
 				else if(variable.compare("TOFUPPERCOBO")==0){
 					ToF_upper_cobo = std::stoll(value);
 				}
-// ToF Correlations
+				// ToF Correlations
 				else if(variable.compare("TOFLOWERNUMEXO2")==0){
 					ToF_lower_numexo2 = std::stoll(value);
 				}

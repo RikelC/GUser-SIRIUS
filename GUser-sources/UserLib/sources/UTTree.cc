@@ -88,38 +88,38 @@ void UTTree::Initialize(char *filename, RecoilEvent & recoil, DecayEvent & decay
 
 void UTTree::FillRecoilTTree(){
 
-	if(s1->fsaveTree && fRecoilTTree)fRecoilTTree->Fill();
+	if(s1->fsaveTree && gROOT->FindObject("fRecoilTTree"))fRecoilTTree->Fill();
 }
 void UTTree::FillDecayTTree(){
 
-	if(s1->fsaveTree && fDecayTTree)fDecayTTree->Fill();
+	if(s1->fsaveTree && gROOT->FindObject("fDecayTTree"))fDecayTTree->Fill();
 }
 
 
 void UTTree::FillSiriusFrames(){
 
-	if(s1->fsaveTree && fSiriusTTree)fSiriusTTree->Fill();
+	if(s1->fsaveTree && gROOT->FindObject("fSiriusTTree"))fSiriusTTree->Fill();
 
 }
 
 void UTTree::FillReaGenericFrames(){
 
-	if(s1->fsaveTree && fReaGenericTTree)fReaGenericTTree->Fill();
+	if(s1->fsaveTree && gROOT->FindObject("fReaGenericTTree"))fReaGenericTTree->Fill();
 
 }
 
 void UTTree::FillCoBoFrames(){
 
-	if(s1->fsaveTree && fCoBoTTree)fCoBoTTree->Fill();
+	if(s1->fsaveTree && gROOT->FindObject("fCoBoTTree"))fCoBoTTree->Fill();
 
 }
 void UTTree::Save(){
 	if(s1->fsaveTree && fTreeFile){
 		fTreeFile->cd();
-		//	if(fSiriusTTree)fSiriusTTree->Write();
-		//	if(fReaGenericTTree)fReaGenericTTree->Write();
-		//	if(fCoBoTTree)fCoBoTTree->Write();
-		if(fRecoilTTree)fRecoilTTree->Write();
+		if(gROOT->FindObject("fSiriusTTree"))fSiriusTTree->Write();
+		if(gROOT->FindObject("fReaGenericTTree"))fReaGenericTTree->Write();
+		if(gROOT->FindObject("fCoBoTTree"))fCoBoTTree->Write();
+		if(gROOT->FindObject("fRecoilTTree"))fRecoilTTree->Write();
 		fTreeFile->Close();
 		cout<<BLUE<<"TTree saved in file : "<<GREEN<<fTreeFileName<<RESET <<endl;
 	}

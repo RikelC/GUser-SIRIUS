@@ -33,12 +33,13 @@ Correlation::~Correlation(){
 void Correlation::Clear(){
 	RecoilEventVec.clear();
 	DecayEventVec.clear();
-	uDssd.clear();
+/*	Do not clear the other vectors as they are used for uncorrelated events
+ *	uDssd.clear();
 	uTrackerNumexo2.clear();
 	uTrackerCobo.clear();
 	unCorrelatedDssd.clear();
 	unCorrelatedTrackerNumexo2.clear();
-	unCorrelatedTrackerCobo.clear();
+	unCorrelatedTrackerCobo.clear();*/
 
 }
 void Correlation::Find(std::vector<DssdEvent> &dssd, std::vector<TrackerNumexo2Event> &tracker){
