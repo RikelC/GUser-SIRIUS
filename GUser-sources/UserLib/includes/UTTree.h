@@ -9,6 +9,7 @@
 #define UTTree_h 1
 #include "TFile.h"
 #include "TTree.h"
+#include "TROOT.h"
 #include "DssdData.h"
 #include "TunnelData.h"
 #include "TrackerCoBoData.h"

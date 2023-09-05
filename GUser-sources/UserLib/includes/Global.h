@@ -103,8 +103,8 @@ class MyGlobal
 		//DSSD board list	
 		int NBOARDS_DSSD; /*!< The number of active DSSD boards. */
 		int NSTRIPS_DSSD;/*!< The number of active DSSD strips.*/
-
-                bool fReverseStrip;
+		std::string fTreeType;
+		bool fReverseStrip;
 		std::string dssdFormat;		
 		std::string trackerFormat;		
 		std::string tunnelFormat;		
