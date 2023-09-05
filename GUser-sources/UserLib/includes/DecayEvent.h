@@ -17,6 +17,22 @@ class DecayEvent : public Event
 	public:
 		DecayEvent();
 		~DecayEvent();	
+		void Clear();
+		DecayEvent& operator=(const DecayEvent& rhs){
+			if(this == &rhs) return *this;
+			else{
+				fDssdEvent = rhs.GetDssdEvent();
+			}
+			return *this;
+		}
+
+		inline bool operator==(const DecayEvent& rhs){
+			if(this == &rhs) return true;
+			else{ 
+				return (fDssdEvent == rhs.GetDssdEvent());
+			}
+		}
+
 };
 #endif
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------

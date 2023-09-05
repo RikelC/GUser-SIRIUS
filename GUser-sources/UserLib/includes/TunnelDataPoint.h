@@ -16,7 +16,7 @@ class TunnelDataPoint : public Numexo2DataPoint
 {
 	private:
 		TunnelMacroPixel fMacroPixel; /*!< Macro pixel*/
-		float fNeighborhoodness;
+		double fNeighborhoodness;
 	public:
 		TunnelDataPoint();
 		TunnelDataPoint(TunnelMacroPixel s, ullint t, double e);
@@ -34,13 +34,28 @@ class TunnelDataPoint : public Numexo2DataPoint
 		void Clear();
 		/*! get the current  macro pixel's fNeighborhoodness with respect to another macropixel.
 		*/
-		float GetNeighborhoodness(TunnelMacroPixel *l);
+		double GetNeighborhoodness(TunnelMacroPixel *l);
 		/*! get the current  macro pixel's fNeighborhoodness with respect to another macropixel.
 		*/
-		float GetNeighborhoodness(TunnelDataPoint *l);
+		double GetNeighborhoodness(TunnelDataPoint *l);
+		double GetNeighborhoodness() const {return fNeighborhoodness;}
 
 		friend bool CompareEnergy(TunnelDataPoint const & i, TunnelDataPoint const & j);
 		friend bool CompareTime(TunnelDataPoint const & i, TunnelDataPoint const & j);
+
+		TunnelDataPoint& operator=(const TunnelDataPoint& other){
+			if(this==&other)return *this;
+			fMacroPixel = other.GetMacroPixel();
+			fNeighborhoodness = other.GetNeighborhoodness();
+			return *this;
+		}
+		inline bool operator==(const TunnelDataPoint& other){
+			if(this==&other)return true;
+			if( fMacroPixel == other.GetMacroPixel()
+					&& fNeighborhoodness == other.GetNeighborhoodness())
+				return true;
+			else return false;
+		}
 
 };
 #endif

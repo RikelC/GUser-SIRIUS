@@ -91,6 +91,7 @@ class DigitalFilters
 		void SetDssdGain(double);
 		void SetRCConstant(double);
                 double Perform(DssdData* const, TH1* const);
+                double Perform(DssdData* const);
 
 };
 #endif

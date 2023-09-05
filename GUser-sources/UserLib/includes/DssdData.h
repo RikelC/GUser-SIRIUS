@@ -49,6 +49,7 @@ class DssdData : public Numexo2Data
 		int fFluctuationDistance;/*!< */
 		std::map<std::pair<int, int >, int > fStripMap;
 		std::map<int, std::pair<int, int > > fReverseStripMap;
+		void ReversePhysicalStripDirection();
 		int* fDifferentialTrace;
 		//private methods		
 		double CalculateRCConstant();

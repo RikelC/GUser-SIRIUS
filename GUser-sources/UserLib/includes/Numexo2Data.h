@@ -49,7 +49,32 @@ class Numexo2Data
 		double* GetRawEnergyAddress() {return &fRawEnergy;}
 		double* GetCalibratedEnergyAddress(){return &fCalibratedEnergy;}
 
+		Numexo2Data& operator=(const Numexo2Data& other){
 
+			if(this == &other) return *this;
+			fBoard = other.GetBoard();
+			fBoardIndex = other.GetBoardIndex();
+			fChannel = other.GetChannel();
+			fEventNumber = other.GetEventNumber();
+			fTimeStamp = other.GetTimeStamp();
+			fRawEnergy = other.GetRawEnergy();
+			fCalibratedEnergy = other.GetCalibratedEnergy();
+			return *this;
+		}
+
+		inline bool operator==(const Numexo2Data& other){
+
+			if(this == &other) return true;
+			if( fBoard == other.GetBoard() 
+					&& fBoardIndex == other.GetBoardIndex()
+					&& fChannel == other.GetChannel()
+					&& fEventNumber == other.GetEventNumber()
+					&& fTimeStamp == other.GetTimeStamp()
+					&& fRawEnergy == other.GetRawEnergy()
+					&& fCalibratedEnergy == other.GetCalibratedEnergy())
+				return true;
+			else return false;
+		}
 };
 #endif
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------

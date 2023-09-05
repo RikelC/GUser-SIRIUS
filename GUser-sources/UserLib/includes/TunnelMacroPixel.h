@@ -75,7 +75,18 @@ class TunnelMacroPixel
 
 			return *this;
 		}
+		inline bool operator==(const TunnelMacroPixel& other){
 
+			if(this == &other) return true;
+
+			if( fName == other.GetName()
+					&& fN == other.GetN()
+					&& fDetector == other.GetDetector()
+					&& fBoard == other.GetBoard()
+					&& fChannel == other.GetChannel())
+				return true;
+			else return false;
+		}
 };
 #endif
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------

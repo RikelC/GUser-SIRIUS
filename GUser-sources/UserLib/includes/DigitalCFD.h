@@ -21,6 +21,7 @@
 #include "TH2.h"
 #include <Math/Interpolator.h>
 #include "TRandom3.h"
+#define fFixedTimeSample 512
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 class DigitalCFD
 {
@@ -29,12 +30,14 @@ class DigitalCFD
 		MyGlobal* s1;
 		ushort **fDelay; 
 		double **fFraction; 
-                TRandom3 * rand;
+		TRandom3 * rand;
 		double* fVOut; 
 		double* fVIn; 
 		double* fVInDelayed; 
 		double fZeroCrossingTime;
 		double fZeroCrossingSample;
+		double fZeroCrossingSampleHeight;
+		int fDisplacement;
 	public:
 		DigitalCFD();
 		~DigitalCFD();
@@ -46,6 +49,7 @@ class DigitalCFD
 		double Perform(DssdData* const, std::string, TH2F*);
 		double GetZeroCrossingTime() const{return fZeroCrossingTime;}
 		double GetZeroCrossingSample() const{return fZeroCrossingSample;}
+		double GetZeroCrossingSampleHeight() const{return fZeroCrossingSampleHeight;}
 };
 #endif
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------

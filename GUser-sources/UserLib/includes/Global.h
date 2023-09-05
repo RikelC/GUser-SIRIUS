@@ -104,6 +104,7 @@ class MyGlobal
 		int NBOARDS_DSSD; /*!< The number of active DSSD boards. */
 		int NSTRIPS_DSSD;/*!< The number of active DSSD strips.*/
 
+                bool fReverseStrip;
 		std::string dssdFormat;		
 		std::string trackerFormat;		
 		std::string tunnelFormat;		
@@ -139,9 +140,11 @@ class MyGlobal
 		int trackerNumexoStrip;
 
 		// Correlations toF DSSD vs CoBo
-		llint ToF_lower;
-		llint ToF_upper;
+		llint ToF_lower_cobo;
+		llint ToF_upper_cobo;
 
+		llint ToF_lower_numexo2;
+		llint ToF_upper_numexo2;
 		//Exogam related
 		std::string gamma_calib_filename;/*!< Ge detector calibration filename*/
 

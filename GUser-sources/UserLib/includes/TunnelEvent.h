@@ -34,13 +34,29 @@ class TunnelEvent
 		ullint GetTimeStamp() const {return fTimeStamp;}
 		double GetEnergy() const {return fEnergy;}
 
-                TunnelMacroPixel* GetMacroPixel() {return &fPixel;}
+		TunnelMacroPixel* GetMacroPixel() {return &fPixel;}
 		ullint* GetTimeStampAddress() {return &fTimeStamp;}
 		double* GetEnergyAddress() {return &fEnergy;}
 
 
 		void Clear();
 		friend bool CompareTimeEvent(TunnelEvent const & i, TunnelEvent const & j);
+
+		TunnelEvent& operator=(const TunnelEvent& other){
+			if(this ==&other) return *this;
+			fPixel = other.GetMacroPixel();
+			fTimeStamp = other.GetTimeStamp();
+			fEnergy = other.GetEnergy();
+			return *this;
+		} 
+		inline bool operator==(const TunnelEvent& other){
+			if(this ==&other) return true;
+			if( fPixel == other.GetMacroPixel()
+					&& fTimeStamp == other.GetTimeStamp()
+					&& fEnergy == other.GetEnergy())
+				return true;
+			else return false;
+		} 
 };
 #endif
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------

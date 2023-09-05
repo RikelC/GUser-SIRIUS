@@ -46,6 +46,24 @@ class TunnelPixel
 		/*! Get the value of fY.
 		*/
 		int GetY()const{return fY;}
+		TunnelPixel& operator=(const TunnelPixel& other){
+
+			if(this == &other) return *this;
+			fN = other.GetN();
+			fX = other.GetX();
+			fY = other.GetY();
+			return *this;
+		}
+		inline bool operator==(const TunnelPixel& other){
+
+			if(this == &other) return true;
+			if( fN == other.GetN()
+					&& fX == other.GetX()
+					&& fY == other.GetY())
+				return true;
+			else return false;
+		}
+
 };
 #endif
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------

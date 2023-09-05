@@ -40,6 +40,14 @@ class DssdPixel
 			fY = other.GetY();
 			return *this;
 		}
+		inline bool operator==(const DssdPixel& other){
+			if(this == &other) return true;
+			if(fX == other.GetX()
+					&& fY == other.GetY())
+				return true;
+			else return false;
+		}
+
 };
 #endif
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
