@@ -50,6 +50,7 @@ DigitalCFD::~DigitalCFD()
 	delete [] fDelay;
 	delete [] fFraction;
 }
+
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 //-----------------------------
 // Assignment of CFD parameters
@@ -214,8 +215,10 @@ double DigitalCFD::GetCFDTime( DssdData* const data){
 	y = 0.;
 	if(M ==0.) x =x1;
 	else x = (y -C)/M;
-	fZeroCrossingSample = x;
-	fZeroCrossingTime = x * (double)sampling_period;
+	fZeroCrossingSample = int(x);
+	fDisplacement = fFixedTimeSample - fZeroCrossingSample; 
+	fZeroCrossingTime = (x  + fDisplacement) * (double)sampling_period;
+	fZeroCrossingSample = int(x + fDisplacement);
 
 	return fZeroCrossingTime;
 }
@@ -285,8 +288,10 @@ double DigitalCFD::GetCFDTime( DssdData* const data, int del,  double fract, TGr
 	y = 0.;
 	if(M ==0.) x = x1;
 	else x = (y -C)/M;
-	fZeroCrossingSample = x;
-	fZeroCrossingTime = x * (double)sampling_period;
+	fZeroCrossingSample = int(x);
+	fDisplacement = fFixedTimeSample - fZeroCrossingSample; 
+	fZeroCrossingTime = (x  + fDisplacement) * (double)sampling_period;
+	fZeroCrossingSample = int(x + fDisplacement);
 
 	return fZeroCrossingTime; 
 }
@@ -345,25 +350,33 @@ double DigitalCFD::GetCFDTime( DssdData* const data, int del,  double fract, TH2
 		x2--;
 		y2 = fVOut[x2];
 	}
-	if(y2 < 0.){
-		x2++; 
-		y2 = fVOut[x2];
-	}
+	/*if(y2 < 0.){
+	  x2++; 
+	  y2 = fVOut[x2];
+	  }*/
 
-/*	x1 = x2 - 2;
-x2 +=2; 
-	y2 = fVOut[x2];
-*/
-	x1 = x2 - 1;
+	/*	x1 = x2 - 2;
+		x2 +=2; 
+		y2 = fVOut[x2];
+		*/
+	x1 = x2 + 1;
 	y1 = fVOut[x1];
-	x1 +=rand->Uniform(0,1.); x2 +=rand->Uniform(0,1.);
-	M = (y2 - y1)/(double)(x2 - x1);
+	//x1 +=rand->Uniform(0,1.); x2 +=rand->Uniform(0,1.);
+	M = (y1 - y2)/(double)(x1 - x2);
 	C = y1 - M*static_cast<double>(x1);
 	y = 0.;
 	if(M ==0.) x = x1;
 	else x = (y -C)/M;
+
 	fZeroCrossingSample = x;
+	fZeroCrossingSampleHeight = fVOut[int(x)];
+//cout<<"x1: "<<x1<<"  x2:  "<<x2<<"  x: "<<x<<endl;
+//cout<<"y1: "<<y1<<"  y2:  "<<y2<<"  y0: "<<fZeroCrossingSampleHeight<<endl;
+	//fDisplacement = fFixedTimeSample - fZeroCrossingSample; 
+	//fDisplacement =0;
+	//fZeroCrossingTime = (x  + fDisplacement) * (double)sampling_period;
 	fZeroCrossingTime = x * (double)sampling_period;
+	//fZeroCrossingSample = int(x + fDisplacement);
 
 	return fZeroCrossingTime;
 }

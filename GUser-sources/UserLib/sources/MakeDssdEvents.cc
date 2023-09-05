@@ -23,7 +23,7 @@ bool CompareTime(DssdDataPoint const & i, DssdDataPoint const & j)
 
 bool CompareTimeEvent(DssdEvent const & i, DssdEvent const & j)
 {	
-	return std::tie(i.fTimeStamp, i.fEnergyX, i.fEnergyY) < std::tie(j.fTimeStamp, j.fEnergyX, j.fEnergyY);
+	return std::tie(i.fTimeStampX, i.fEnergyX, i.fEnergyY) < std::tie(j.fTimeStampX, j.fEnergyX, j.fEnergyY);
 }
 
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
@@ -35,58 +35,51 @@ MakeDssdEvents::MakeDssdEvents(){
 	fTimeDifferenceFrontBack =0;
 	fTimeDifferenceBackFront =0;
 	fTimeDifferenceBackBack =0;
+	maxTimeWindow = std::max({s1->ff_window, s1->fb_window, s1->bf_window, s1->bb_window});
+	cout<<"maxTimeWindow  "<<maxTimeWindow<<endl;
 }
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 //! Destructor
 MakeDssdEvents::~MakeDssdEvents(){
 	myEvent.clear();
+	myEvent_front.clear();
+	myEvent_back.clear();
 	tempEvent.clear();
 	tempEventF.clear();
 	tempEventB.clear();
-	myEvent_front.clear();
-	myEvent_back.clear();
+	unCorrelatedDataSet.clear();
 }
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 //! Making of DSSD pixels
 std::vector<DssdEvent> MakeDssdEvents::Construct(std::string mode, std::vector<DssdDataPoint> &dataSet, TGraph* gr1, TGraph *gr, TGraph* gr2){
 	std::vector<DssdEvent> eventSet;
 	if(!dataSet.empty()){
+		//---------sort the events in time-----------
+		std::sort(dataSet.begin(), dataSet.end(),CompareTime);
 		//-----------------------
-		// Add previous tempEvent
+		// Add previous tempEvent if dt is less than coincidence
 		//------------------------
-
 		if(mode.compare("FB")==0){
 			if(tempEvent.size() >0){
-
-				if(tempEvent.size() < s1->buffer_size) dataSet.insert (dataSet.begin(),tempEvent.begin(),tempEvent.end());
-				else dataSet.insert (dataSet.begin(),tempEvent.begin()+(tempEvent.size()/2),tempEvent.end());
-				//cout<<"dataSet size "<<dataSet.size()<<"  temp size "<<tempEvent.size()<<" pixels "<<fPixelCounter<<endl;
-				tempEvent.clear();
-				//fPixelCounter =0;
+				AddPreviousUncorrelatedDataPoints(tempEvent, dataSet);
 			}
 		}
 		else if(mode.compare("F")==0){
 			if(tempEventF.size() >0){
-				if(tempEventF.size() < s1->buffer_size) dataSet.insert (dataSet.begin(),tempEventF.begin(),tempEventF.end());
-				else dataSet.insert (dataSet.begin(),tempEventF.begin()+(tempEventF.size()/2),tempEventF.end());
-				tempEventF.clear();
+				AddPreviousUncorrelatedDataPoints(tempEventF, dataSet);
 			}
 		}
 
 		else if(mode.compare("B")==0){
 			if(tempEventB.size() >0){
-				if(tempEventB.size() < s1->buffer_size) dataSet.insert (dataSet.begin(),tempEventB.begin(),tempEventB.end());
-				else dataSet.insert (dataSet.begin(),tempEventB.begin()+(tempEventB.size()/2),tempEventB.end());
-				tempEventB.clear();
+				AddPreviousUncorrelatedDataPoints(tempEventB, dataSet);
 			}
 		}
-
+		//------------------reConstruct events based on coincidence------------
 		//------------------------
 		for(ulint i = 0;i < dataSet.size();i++){
 			gr1->SetPoint(i,i,dataSet[i].GetTimeStamp());
 		}
-		//---------sort the events in time-----------
-		std::sort(dataSet.begin(), dataSet.end(),CompareTime);
 		//------------------reConstruct events based on coincidence------------
 
 		myEvent.push_back(dataSet[0]);
@@ -149,14 +142,18 @@ std::vector<DssdEvent> MakeDssdEvents::Construct(std::string mode, std::vector<D
 
 				if(mode.compare("FB")==0){
 					fEvtPoint = DetermineDssdEvent(myEvent);
-					if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() >= 0) 	eventSet.push_back(fEvtPoint);
+					if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() >= 0) 	
+						eventSet.push_back(fEvtPoint);
 				}
 				else if (mode.compare("F")==0){
 					fEvtPoint = DetermineDssdFrontEvent(myEvent);
-					if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() ==-100) 	eventSet.push_back(fEvtPoint);
+					if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() ==unFoundedStrip) 	
+						eventSet.push_back(fEvtPoint);
 				}
-				else if (mode.compare("B")==0){fEvtPoint = DetermineDssdBackEvent(myEvent);
-					if(fEvtPoint.GetPixel().GetX() ==-100 && fEvtPoint.GetPixel().GetY() >= 0) 	eventSet.push_back(fEvtPoint);
+				else if (mode.compare("B")==0){
+					fEvtPoint = DetermineDssdBackEvent(myEvent);
+					if(fEvtPoint.GetPixel().GetX() ==unFoundedStrip && fEvtPoint.GetPixel().GetY() >= 0) 	
+						eventSet.push_back(fEvtPoint);
 				}
 
 				//---------push the new point-----
@@ -168,17 +165,51 @@ std::vector<DssdEvent> MakeDssdEvents::Construct(std::string mode, std::vector<D
 		// ----------------------------
 		if(mode.compare("FB")==0){
 			fEvtPoint = DetermineDssdEvent(myEvent);
-			if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() >= 0) 	eventSet.push_back(fEvtPoint);
+			if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() >= 0) 
+				eventSet.push_back(fEvtPoint);
 		}
 		else if (mode.compare("F")==0){
 			fEvtPoint = DetermineDssdFrontEvent(myEvent);
-			if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() ==-100) 	eventSet.push_back(fEvtPoint);
+			if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() ==unFoundedStrip) 	
+				eventSet.push_back(fEvtPoint);
 		}
-		else if (mode.compare("B")==0){fEvtPoint = DetermineDssdBackEvent(myEvent);
-			if(fEvtPoint.GetPixel().GetX() ==-100 && fEvtPoint.GetPixel().GetY() >= 0) 	eventSet.push_back(fEvtPoint);
+		else if (mode.compare("B")==0){
+			fEvtPoint = DetermineDssdBackEvent(myEvent);
+			if(fEvtPoint.GetPixel().GetX() ==unFoundedStrip && fEvtPoint.GetPixel().GetY() >= 0) 	
+				eventSet.push_back(fEvtPoint);
 		}
 		//------------clear the data container--
 		dataSet.clear();
+		if(!unCorrelatedDataSet.empty()){
+			// uncorrelated events from last batch, usually are correlated with events from missing strips on the other side
+			DssdEvent event;
+			for(std::vector<DssdDataPoint>::iterator it = unCorrelatedDataSet.begin(); it != unCorrelatedDataSet.end(); ++it){
+				if((*it).IsAFrontStrip()){
+					DssdPixel pixel((*it).GetStrip() -128, unFoundedStrip);
+					event.SetPixel(pixel);
+					event.SetTimeStampX((*it).GetTimeStamp());
+					event.SetTimeStampY((*it).GetTimeStamp());
+					event.SetCFDTimeX((*it).GetCFDTime());
+					event.SetCFDTimeY((*it).GetCFDTime());
+					event.SetEnergyX((*it).GetEnergy());
+					event.SetEnergyY(0);
+					event.SetTraceX((*it).GetTrace(), s1->TRACE_SIZE);
+				}
+				else{
+					DssdPixel pixel(unFoundedStrip,(*it).GetStrip() -128);
+					event.SetPixel(pixel);
+					event.SetTimeStampX((*it).GetTimeStamp());
+					event.SetTimeStampY((*it).GetTimeStamp());
+					event.SetCFDTimeX((*it).GetCFDTime());
+					event.SetCFDTimeY((*it).GetCFDTime());
+					event.SetEnergyX(0);
+					event.SetEnergyY((*it).GetEnergy());
+					event.SetTraceY((*it).GetTrace(), s1->TRACE_SIZE);
+				}
+				eventSet.push_back(event);
+			}
+			unCorrelatedDataSet.clear();
+		}
 	}
 
 	//cout<<"end-----------------------------"<<endl;
@@ -189,39 +220,27 @@ std::vector<DssdEvent> MakeDssdEvents::Construct(std::string mode, std::vector<D
 std::vector<DssdEvent> MakeDssdEvents::Construct(std::string mode, std::vector<DssdDataPoint> &dataSet, TH1 *h_ff=nullptr, TH1 *h_fb=nullptr, TH1 *h_bf=nullptr, TH1 *h_bb=nullptr){
 	std::vector<DssdEvent> eventSet;
 	if(!dataSet.empty()){
+		//---------sort the events in time-----------
+		std::sort(dataSet.begin(), dataSet.end(),CompareTime);
 		//-----------------------
-		// Add previous tempEvent
+		// Add previous tempEvent if dt is less than coincidence
 		//------------------------
 		if(mode.compare("FB")==0){
 			if(tempEvent.size() >0){
-
-				if(tempEvent.size() < s1->buffer_size) dataSet.insert (dataSet.begin(),tempEvent.begin(),tempEvent.end());
-				else dataSet.insert (dataSet.begin(),tempEvent.begin()+(tempEvent.size()/2),tempEvent.end());
-				//cout<<"dataSet size "<<dataSet.size()<<"  temp size "<<tempEvent.size()<<" pixels "<<fPixelCounter<<endl;
-				tempEvent.clear();
-				//fPixelCounter =0;
+				AddPreviousUncorrelatedDataPoints(tempEvent, dataSet);
 			}
 		}
 		else if(mode.compare("F")==0){
 			if(tempEventF.size() >0){
-				if(tempEventF.size() < s1->buffer_size) dataSet.insert (dataSet.begin(),tempEventF.begin(),tempEventF.end());
-				else dataSet.insert (dataSet.begin(),tempEventF.begin()+(tempEventF.size()/2),tempEventF.end());
-				tempEventF.clear();
+				AddPreviousUncorrelatedDataPoints(tempEventF, dataSet);
 			}
 		}
 
 		else if(mode.compare("B")==0){
 			if(tempEventB.size() >0){
-				if(tempEventB.size() < s1->buffer_size) dataSet.insert (dataSet.begin(),tempEventB.begin(),tempEventB.end());
-				else dataSet.insert (dataSet.begin(),tempEventB.begin()+(tempEventB.size()/2),tempEventB.end());
-				tempEventB.clear();
+				AddPreviousUncorrelatedDataPoints(tempEventB, dataSet);
 			}
 		}
-
-		//---------sort the events in time-----------
-		std::sort(dataSet.begin(), dataSet.end(),CompareTime);
-
-		//			cout<<"i "<<0<<" time "<<dataSet[0].GetTimeStamp() <<"  strip "<<dataSet[0].GetStrip()<<"  energy "<<dataSet[0].GetEnergy()<<" size "<< dataSet.size()<<endl;
 		//------------------reConstruct events based on coincidence------------
 		myEvent.push_back(dataSet[0]);
 		for(ulint i = 1;i < dataSet.size();i++){
@@ -267,14 +286,17 @@ std::vector<DssdEvent> MakeDssdEvents::Construct(std::string mode, std::vector<D
 				//cout<<"myEvent size "<<myEvent.size()<<endl;
 				if(mode.compare("FB")==0){
 					fEvtPoint = DetermineDssdEvent(myEvent);
-					if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() >= 0) 	eventSet.push_back(fEvtPoint);
+					if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() >= 0) 	
+						eventSet.push_back(fEvtPoint);
 				}
 				else if (mode.compare("F")==0){
 					fEvtPoint = DetermineDssdFrontEvent(myEvent);
-					if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() ==-100) 	eventSet.push_back(fEvtPoint);
+					if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() ==unFoundedStrip) 	
+						eventSet.push_back(fEvtPoint);
 				}
 				else if (mode.compare("B")==0){fEvtPoint = DetermineDssdBackEvent(myEvent);
-					if(fEvtPoint.GetPixel().GetX() ==-100 && fEvtPoint.GetPixel().GetY() >= 0) 	eventSet.push_back(fEvtPoint);
+					if(fEvtPoint.GetPixel().GetX() ==unFoundedStrip && fEvtPoint.GetPixel().GetY() >= 0) 
+						eventSet.push_back(fEvtPoint);
 				}
 				//---------push the new point-----
 				myEvent.push_back(dataSet[i]);
@@ -285,69 +307,114 @@ std::vector<DssdEvent> MakeDssdEvents::Construct(std::string mode, std::vector<D
 		//---------------------------
 		if(mode.compare("FB")==0){
 			fEvtPoint = DetermineDssdEvent(myEvent);
-			if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() >= 0) 	eventSet.push_back(fEvtPoint);
+			if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() >= 0)
+				eventSet.push_back(fEvtPoint);
 		}
 		else if (mode.compare("F")==0){
 			fEvtPoint = DetermineDssdFrontEvent(myEvent);
-			if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() ==-100) 	eventSet.push_back(fEvtPoint);
+			if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() ==unFoundedStrip) 	
+				eventSet.push_back(fEvtPoint);
 		}
 		else if (mode.compare("B")==0){fEvtPoint = DetermineDssdBackEvent(myEvent);
-			if(fEvtPoint.GetPixel().GetX() ==-100 && fEvtPoint.GetPixel().GetY() >= 0) 	eventSet.push_back(fEvtPoint);
+			if(fEvtPoint.GetPixel().GetX() ==unFoundedStrip && fEvtPoint.GetPixel().GetY() >= 0)
+				eventSet.push_back(fEvtPoint);
 		}
 
 		//------------clear the data container--
 		dataSet.clear();
+		if(!unCorrelatedDataSet.empty()){
+			// uncorrelated events from last batch, usually are correlated with events from missing strips on the other side
+			DssdEvent event;
+			for(std::vector<DssdDataPoint>::iterator it = unCorrelatedDataSet.begin(); it != unCorrelatedDataSet.end(); ++it){
+				if((*it).IsAFrontStrip()){
+					DssdPixel pixel((*it).GetStrip() -128, unFoundedStrip);
+					event.SetPixel(pixel);
+					event.SetTimeStampX((*it).GetTimeStamp());
+					event.SetTimeStampY((*it).GetTimeStamp());
+					event.SetCFDTimeX((*it).GetCFDTime());
+					event.SetCFDTimeY((*it).GetCFDTime());
+					event.SetEnergyX((*it).GetEnergy());
+					event.SetEnergyY(0);
+					event.SetTraceX((*it).GetTrace(), s1->TRACE_SIZE);
+				}
+				else{
+					DssdPixel pixel(unFoundedStrip,(*it).GetStrip() -128);
+					event.SetPixel(pixel);
+					event.SetTimeStampX((*it).GetTimeStamp());
+					event.SetTimeStampY((*it).GetTimeStamp());
+					event.SetCFDTimeX((*it).GetCFDTime());
+					event.SetCFDTimeY((*it).GetCFDTime());
+					event.SetEnergyX(0);
+					event.SetEnergyY((*it).GetEnergy());
+					event.SetTraceY((*it).GetTrace(), s1->TRACE_SIZE); 
+				}
+				eventSet.push_back(event);
+			}
+			unCorrelatedDataSet.clear();
+		}
 
 	}
 
 	return eventSet;
 }
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
-
+void MakeDssdEvents::AddPreviousUncorrelatedDataPoints(std::vector<DssdDataPoint> &dataSet1, std::vector<DssdDataPoint> &dataSet2){
+	//dataSet1 already time ordered
+	// add elements from dataset1 to dataset2
+	// if the concidenc widow is small
+	if(!dataSet1.empty() && !dataSet2.empty()){
+		//	cout<<"temp "<<tempEvent.size()<<"  data1 "<<dataSet1.size()<<"  data2 "<<dataSet2.size()<<endl;
+		unCorrelatedDataSet.clear();
+		std::sort(dataSet2.begin(), dataSet2.end(),CompareTime);
+		llint dt =0;
+		//		ullint refTime = dataSet2[0].GetTimeStamp();//Assumtions: smallest in time and a good event
+		for(std::vector<DssdDataPoint>::iterator it = dataSet1.begin(); it != dataSet1.end();++it){
+			dt= static_cast<llint>( dataSet2[0].GetTimeStamp() - (*it).GetTimeStamp());
+			if(dt < maxTimeWindow) dataSet2.push_back((*it));
+			else unCorrelatedDataSet.push_back((*it));
+		}
+		dataSet1.clear();
+		//		cout<<"temp "<<tempEvent.size()<<"  data1 "<<dataSet1.size()<<"  data2 "<<dataSet2.size()<<" uncorrelated "<<unCorrelatedDataSet.size()<<endl;
+		//sort in time again
+		std::sort(dataSet2.begin(), dataSet2.end(),CompareTime);
+	}
+}
 
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 //! Making of DSSD pixels
 std::vector<DssdEvent> MakeDssdEvents::Construct(std::string mode, std::vector<DssdDataPoint> &dataSet){
 	std::vector<DssdEvent> eventSet;
+	//	cout<<"Making of DSSD pixels: "<<dataSet.size()<<endl;
+	//	int fPixelCounter=0;
+	//	int fPixelCounter2=0;
 	if(!dataSet.empty()){
+		//---------sort the events in time-----------
+		std::sort(dataSet.begin(), dataSet.end(),CompareTime);
 		//-----------------------
-		// Add previous tempEvent
+		// Add previous tempEvent if dt is less than coincidence
 		//------------------------
-
 		if(mode.compare("FB")==0){
 			if(tempEvent.size() >0){
-
-				if(tempEvent.size() < s1->buffer_size) dataSet.insert (dataSet.begin(),tempEvent.begin(),tempEvent.end());
-				else dataSet.insert (dataSet.begin(),tempEvent.begin()+(tempEvent.size()/2),tempEvent.end());
-				//cout<<"dataSet size "<<dataSet.size()<<"  temp size "<<tempEvent.size()<<" pixels "<<fPixelCounter<<endl;
-				tempEvent.clear();
-				//fPixelCounter =0;
+				AddPreviousUncorrelatedDataPoints(tempEvent, dataSet);
 			}
 		}
 		else if(mode.compare("F")==0){
 			if(tempEventF.size() >0){
-				if(tempEventF.size() < s1->buffer_size) dataSet.insert (dataSet.begin(),tempEventF.begin(),tempEventF.end());
-				else dataSet.insert (dataSet.begin(),tempEventF.begin()+(tempEventF.size()/2),tempEventF.end());
-				tempEventF.clear();
+				AddPreviousUncorrelatedDataPoints(tempEventF, dataSet);
 			}
 		}
 
 		else if(mode.compare("B")==0){
 			if(tempEventB.size() >0){
-				if(tempEventB.size() < s1->buffer_size) dataSet.insert (dataSet.begin(),tempEventB.begin(),tempEventB.end());
-				else dataSet.insert (dataSet.begin(),tempEventB.begin()+(tempEventB.size()/2),tempEventB.end());
-				tempEventB.clear();
+				AddPreviousUncorrelatedDataPoints(tempEventB, dataSet);
 			}
 		}
-
-
-		//---------sort the events in time-----------
-		std::sort(dataSet.begin(), dataSet.end(),CompareTime);
 		//------------------reConstruct events based on coincidence------------
 		myEvent.push_back(dataSet[0]);
 		for(ulint i = 1;i < dataSet.size();i++){
 			fStartNewEvent = false;
-			//cout<<"time "<<dataSet[i].time <<"  strip "<<dataSet[i].strip<<"  energy "<<dataSet[i].energy<<endl;
+			//cout<<"time "<<dataSet[i].GetTimeStamp() <<"  strip "<<dataSet[i].GetStrip()<<"  energy "<<dataSet[i].GetEnergy()<<endl;
+			//cout<<"dt: "<<static_cast<llint>( dataSet[i].GetTimeStamp() - dataSet[i-1].GetTimeStamp())<<endl;
 			//---------------------delta T--------
 			if(dataSet[i].IsAFrontStrip()){
 				if(dataSet[i-1].IsAFrontStrip()){
@@ -385,17 +452,24 @@ std::vector<DssdEvent> MakeDssdEvents::Construct(std::string mode, std::vector<D
 
 			//---------------make pixel-----------
 			if(fStartNewEvent == true){
-				//cout<<"myEvent size "<<myEvent.size()<<endl;
+				//fPixelCounter2+= myEvent.size();
 				if(mode.compare("FB")==0){
 					fEvtPoint = DetermineDssdEvent(myEvent);
-					if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() >= 0) 	eventSet.push_back(fEvtPoint);
+					if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() >= 0)	
+					{
+						eventSet.push_back(fEvtPoint);
+						//fPixelCounter++;
+					}
 				}
 				else if (mode.compare("F")==0){
 					fEvtPoint = DetermineDssdFrontEvent(myEvent);
-					if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() ==-100) 	eventSet.push_back(fEvtPoint);
+					if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() ==unFoundedStrip) 	
+						eventSet.push_back(fEvtPoint);
 				}
-				else if (mode.compare("B")==0){fEvtPoint = DetermineDssdBackEvent(myEvent);
-					if(fEvtPoint.GetPixel().GetX() ==-100 && fEvtPoint.GetPixel().GetY() >= 0) 	eventSet.push_back(fEvtPoint);
+				else if (mode.compare("B")==0){
+					fEvtPoint = DetermineDssdBackEvent(myEvent);
+					if(fEvtPoint.GetPixel().GetX() ==unFoundedStrip && fEvtPoint.GetPixel().GetY() >= 0) 
+						eventSet.push_back(fEvtPoint);
 				}
 				//---------push the new point-----
 				myEvent.push_back(dataSet[i]);
@@ -405,38 +479,183 @@ std::vector<DssdEvent> MakeDssdEvents::Construct(std::string mode, std::vector<D
 		//Treatment of the last event
 		//---------------------------
 		//cout<<"myEvent size "<<myEvent.size()<<endl;
+		//fPixelCounter2+= myEvent.size();
 		if(mode.compare("FB")==0){
 			fEvtPoint = DetermineDssdEvent(myEvent);
-			if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() >= 0) 	eventSet.push_back(fEvtPoint);
+			if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() >= 0)
+			{				
+				eventSet.push_back(fEvtPoint);
+				//fPixelCounter++;
+			}
 		}
 		else if (mode.compare("F")==0){
 			fEvtPoint = DetermineDssdFrontEvent(myEvent);
-			if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() ==-100) 	eventSet.push_back(fEvtPoint);
+			if(fEvtPoint.GetPixel().GetX() >= 0 && fEvtPoint.GetPixel().GetY() ==unFoundedStrip)
+				eventSet.push_back(fEvtPoint);
 		}
-		else if (mode.compare("B")==0){fEvtPoint = DetermineDssdBackEvent(myEvent);
-			if(fEvtPoint.GetPixel().GetX() ==-100 && fEvtPoint.GetPixel().GetY() >= 0) 	eventSet.push_back(fEvtPoint);
+		else if (mode.compare("B")==0){
+			fEvtPoint = DetermineDssdBackEvent(myEvent);
+			if(fEvtPoint.GetPixel().GetX() ==unFoundedStrip && fEvtPoint.GetPixel().GetY() >= 0) 	
+				eventSet.push_back(fEvtPoint);
 		}
 
 		//------------clear the data container--
 		dataSet.clear();
 
+		//cout<<"event set size: "<<eventSet.size()<<"  pixel counter: "<<fPixelCounter <<"point counter "<<fPixelCounter2<<"  points: "<<fPixelCounter2<<endl;
+		if(!unCorrelatedDataSet.empty()){
+			// uncorrelated events from last batch, usually are correlated with events from missing strips on the other side
+			//cout<<"unCo "<<unCorrelatedDataSet.size()<<endl;
+			DssdEvent event;
+			for(std::vector<DssdDataPoint>::iterator it = unCorrelatedDataSet.begin(); it != unCorrelatedDataSet.end(); ++it){
+				if((*it).IsAFrontStrip()){
+					DssdPixel pixel((*it).GetStrip() -128, unFoundedStrip);
+					event.SetPixel(pixel);
+					event.SetTimeStampX((*it).GetTimeStamp());
+					event.SetTimeStampY((*it).GetTimeStamp());
+					event.SetCFDTimeX((*it).GetCFDTime());
+					event.SetCFDTimeY((*it).GetCFDTime());
+					event.SetEnergyX((*it).GetEnergy());
+					event.SetEnergyY(0);
+					event.SetTraceX((*it).GetTrace(), s1->TRACE_SIZE);
+				}
+				else{
+					DssdPixel pixel(unFoundedStrip,(*it).GetStrip() -128);
+					event.SetPixel(pixel);
+					event.SetTimeStampX((*it).GetTimeStamp());
+					event.SetTimeStampY((*it).GetTimeStamp());
+					event.SetCFDTimeX((*it).GetCFDTime());
+					event.SetCFDTimeY((*it).GetCFDTime());
+					event.SetEnergyX(0);
+					event.SetEnergyY((*it).GetEnergy());
+					event.SetTraceY((*it).GetTrace(), s1->TRACE_SIZE);
+				}
+				eventSet.push_back(event);
+			}
+			unCorrelatedDataSet.clear();
+		}
 	}
-
+	//cout<<"event set size after : "<<eventSet.size()<<"  pixel counter: "<<fPixelCounter<<"  points: "<<fPixelCounter2<<endl;
 	return eventSet;
 }
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 
+std::vector<DssdEvent> MakeDssdEvents::GetUnCorrelatedEvents(std::string mode){
+
+	std::vector<DssdEvent> eventSet;
+	if(!unCorrelatedDataSet.empty()){
+		// uncorrelated events from last batch, usually are correlated with events from missing strips on the other side
+		//cout<<"unCo "<<unCorrelatedDataSet.size()<<endl;
+		DssdEvent event;
+		for(std::vector<DssdDataPoint>::iterator it = unCorrelatedDataSet.begin(); it != unCorrelatedDataSet.end(); ++it){
+			if((*it).IsAFrontStrip()){
+				DssdPixel pixel((*it).GetStrip() -128, unFoundedStrip);
+				event.SetPixel(pixel);
+				event.SetTimeStampX((*it).GetTimeStamp());
+				event.SetTimeStampY((*it).GetTimeStamp());
+				event.SetCFDTimeX((*it).GetCFDTime());
+				event.SetCFDTimeY((*it).GetCFDTime());
+				event.SetEnergyX((*it).GetEnergy());
+				event.SetEnergyY(0);
+				event.SetTraceX((*it).GetTrace(), s1->TRACE_SIZE);
+			}
+			else{
+				DssdPixel pixel(unFoundedStrip,(*it).GetStrip() -128);
+				event.SetPixel(pixel);
+				event.SetTimeStampX((*it).GetTimeStamp());
+				event.SetTimeStampY((*it).GetTimeStamp());
+				event.SetCFDTimeX((*it).GetCFDTime());
+				event.SetCFDTimeY((*it).GetCFDTime());
+				event.SetEnergyX(0);
+				event.SetEnergyY((*it).GetEnergy());
+				event.SetTraceY((*it).GetTrace(), s1->TRACE_SIZE);
+			}
+			eventSet.push_back(event);
+		}
+		unCorrelatedDataSet.clear();
+	}
+	//cout<<"event set "<<eventSet.size() <<"tempEvent "<<tempEvent.size()<<endl;
+	if(mode.compare("FB")==0 && !tempEvent.empty()){
+		// uncorrelated events from last batch, usually are correlated with events from missing strips on the other side
+		DssdEvent event;
+		for(std::vector<DssdDataPoint>::iterator it = tempEvent.begin(); it != tempEvent.end(); ++it){
+			if((*it).IsAFrontStrip()){
+				DssdPixel pixel((*it).GetStrip() -128, unFoundedStrip);
+				event.SetPixel(pixel);
+				event.SetTimeStampX((*it).GetTimeStamp());
+				event.SetTimeStampY((*it).GetTimeStamp());
+				event.SetCFDTimeX((*it).GetCFDTime());
+				event.SetCFDTimeY((*it).GetCFDTime());
+				event.SetEnergyX((*it).GetEnergy());
+				event.SetEnergyY(0);
+				event.SetTraceX((*it).GetTrace(), s1->TRACE_SIZE);
+			}
+			else{
+				DssdPixel pixel(unFoundedStrip,(*it).GetStrip() -128);
+				event.SetPixel(pixel);
+				event.SetTimeStampX((*it).GetTimeStamp());
+				event.SetTimeStampY((*it).GetTimeStamp());
+				event.SetCFDTimeX((*it).GetCFDTime());
+				event.SetCFDTimeY((*it).GetCFDTime());
+				event.SetEnergyX(0);
+				event.SetEnergyY((*it).GetEnergy());
+				event.SetTraceY((*it).GetTrace(), s1->TRACE_SIZE);
+			}
+			eventSet.push_back(event);
+		}
+		tempEvent.clear();
+	}
+	if(mode.compare("F")==0 && !tempEventF.empty()){
+		// uncorrelated events from last batch, usually are correlated with events from missing strips on the other side
+		DssdEvent event;
+		for(std::vector<DssdDataPoint>::iterator it = tempEventF.begin(); it != tempEventF.end(); ++it){
+			DssdPixel pixel((*it).GetStrip() -128, unFoundedStrip);
+			event.SetPixel(pixel);
+			event.SetTimeStampX((*it).GetTimeStamp());
+			event.SetTimeStampY((*it).GetTimeStamp());
+			event.SetCFDTimeX((*it).GetCFDTime());
+			event.SetCFDTimeY((*it).GetCFDTime());
+			event.SetEnergyX((*it).GetEnergy());
+			event.SetEnergyY(0);
+			event.SetTraceX((*it).GetTrace(), s1->TRACE_SIZE);
+			eventSet.push_back(event);
+		}
+		tempEventF.clear();
+	}
+	if(mode.compare("B")==0 && !tempEventB.empty()){
+		// uncorrelated events from last batch, usually are correlated with events from missing strips on the other side
+		DssdEvent event;
+		for(std::vector<DssdDataPoint>::iterator it = tempEventB.begin(); it != tempEventB.end(); ++it){
+			DssdPixel pixel(unFoundedStrip,(*it).GetStrip() -128);
+			event.SetPixel(pixel);
+			event.SetTimeStampX((*it).GetTimeStamp());
+			event.SetTimeStampY((*it).GetTimeStamp());
+			event.SetCFDTimeX((*it).GetCFDTime());
+			event.SetCFDTimeY((*it).GetCFDTime());
+			event.SetEnergyX(0);
+			event.SetEnergyY((*it).GetEnergy());
+			event.SetTraceY((*it).GetTrace(), s1->TRACE_SIZE);
+			eventSet.push_back(event);
+		}
+		tempEventB.clear();
+	}
+	return eventSet;
+}
 //-------------
 // make event
 //------------
 DssdEvent MakeDssdEvents::DetermineDssdEvent(std::vector<DssdDataPoint> &myEvent){
 	DssdEvent event;
 	event.Clear();
+	//	cout<<"making the dssd event from "<<myEvent.size()<<endl;
 	if(!myEvent.empty()){
 		double emax_front = 0., emax_back =0.;
-		int emax_front_strip = 0, emax_back_strip = 0;
+		int emax_front_strip = unFoundedStrip, emax_back_strip = unFoundedStrip;
 		ullint emax_front_timestamp =0;
+		ullint emax_back_timestamp =0;
 		double emax_front_time =0.;
+		double emax_back_time =0.;
+		int frontMaxPos =0, backMaxPos =0;
 		if(s1->sum_neighboring_strips){
 			//-----------sum-energy of neighboring strips
 			for(ulint n =0; n < myEvent.size();n++){
@@ -507,6 +726,8 @@ DssdEvent MakeDssdEvents::DetermineDssdEvent(std::vector<DssdDataPoint> &myEvent
 			}
 			if(!myEvent_back.empty()){
 				emax_back_strip =  myEvent_back[0].GetStrip();
+				emax_back_timestamp = myEvent_back[0].GetTimeStamp();
+				emax_back_time = myEvent_back[0].GetCFDTime();
 			}
 
 		}else{
@@ -519,35 +740,65 @@ DssdEvent MakeDssdEvents::DetermineDssdEvent(std::vector<DssdDataPoint> &myEvent
 						emax_front_strip = myEvent[n].GetStrip();
 						emax_front_timestamp = myEvent[n].GetTimeStamp();
 						emax_front_time = myEvent[n].GetCFDTime();
+						frontMaxPos = int(n);
 					}
 				}else{
-
 					if(myEvent[n].GetEnergy() > emax_back){
 						emax_back = myEvent[n].GetEnergy();
 						emax_back_strip =myEvent[n].GetStrip();
+						emax_back_timestamp = myEvent[n].GetTimeStamp();
+						emax_back_time = myEvent[n].GetCFDTime();
+						backMaxPos =int(n);
 					}
 				}
 			}
 		}
+		//		cout<<"------------------"<<endl;
+		//		for(int i = 0; i< myEvent.size();i++)cout<<"In the myEvent vec ..strip "<<myEvent[i].GetStrip()<<"  energy "<<myEvent[i].GetEnergy()<<"  time "<<myEvent[i].GetCFDTime()<<endl;
 		//-----------------------------
 		//Set Values to the event point
 		//----------------------------
 		if(emax_front > 0. && emax_back > 0.){
 			DssdPixel pixel(emax_front_strip,emax_back_strip -128);
 			event.SetPixel(pixel);
-			event.SetTimeStamp(emax_front_timestamp);
-			event.SetCFDTime(emax_front_time);
+			event.SetTimeStampX(emax_front_timestamp);
+			event.SetTimeStampY(emax_back_timestamp);
+			event.SetCFDTimeX(emax_front_time);
+			event.SetCFDTimeY(emax_back_time);
 			event.SetEnergyX(emax_front);
 			event.SetEnergyY(emax_back);
+			event.SetTraceX(myEvent[frontMaxPos].GetTrace(), s1->TRACE_SIZE);
+			event.SetTraceY(myEvent[backMaxPos].GetTrace(), s1->TRACE_SIZE);
 			//fPixelCounter++;
+			//	cout<<"Pixel  X: "<<emax_front_strip<<"  Y: "<<emax_back_strip<<"  time: "<<emax_front_timestamp<<endl;
 		}
+		/*else if(emax_front > 0. && emax_back == 0.){
+		  DssdPixel pixel(emax_front_strip,unFoundedStrip);
+		  event.SetPixel(pixel);
+		  event.SetTimeStamp(emax_front_timestamp);
+		  event.SetCFDTime(emax_front_time);
+		  event.SetEnergyX(emax_front);
+		  event.SetEnergyY(0.);
+		//fPixelCounter++;
+		//	cout<<"Pixel  X: "<<emax_front_strip<<"  Y: "<<emax_back_strip<<"  time: "<<emax_front_timestamp<<endl;
+		}
+		else if(emax_front == 0. && emax_back > 0.){
+		DssdPixel pixel(unFoundedStrip,emax_back_strip -128);
+		event.SetPixel(pixel);
+		event.SetTimeStamp(emax_back_timestamp);
+		event.SetCFDTime(emax_back_time);
+		event.SetEnergyX(0.);
+		event.SetEnergyY(emax_back);
+		//fPixelCounter++;
+		//	cout<<"Pixel  X: "<<emax_front_strip<<"  Y: "<<emax_back_strip<<"  time: "<<emax_front_timestamp<<endl;
+		}*/
 		//------------------------------------------
 		// lonely events usually the last data points
 		//-------------------------------------------
 		else if(emax_front ==0. || emax_back == 0.){
 			//cout<<"------------------"<<endl;
-			//for(int i = 0; i< myEvent.size();i++)cout<<"strip "<<myEvent[i].strip<<"  energy "<<myEvent[i].energy<<"  time "<<myEvent[i].time<<endl;
-			if(tempEvent.size() <s1->buffer_size)tempEvent.insert(tempEvent.end(), myEvent.begin(), myEvent.end());
+			//for(int i = 0; i< myEvent.size();i++)cout<<"strip "<<myEvent[i].GetStrip()<<"  energy "<<myEvent[i].GetEnergy()<<"  time "<<myEvent[i].GetCFDTime()<<endl;
+			tempEvent.insert(tempEvent.end(), myEvent.begin(), myEvent.end());
 		}
 		//--------------------------------
 		// Clear memory for the next pixel
@@ -569,9 +820,10 @@ DssdEvent MakeDssdEvents::DetermineDssdFrontEvent(std::vector<DssdDataPoint> &my
 	event.Clear();
 	if(!myEvent.empty()){
 		double emax_front = 0.;
-		int emax_front_strip = 0;
+		int emax_front_strip = unFoundedStrip;
 		ullint emax_front_timestamp =0;
 		double emax_front_time =0.;
+		int frontMaxPos=0;
 		if(s1->sum_neighboring_strips){
 			//-----------sum-energy of neighboring strips
 			for(ulint n =0; n < myEvent.size();n++){
@@ -626,6 +878,7 @@ DssdEvent MakeDssdEvents::DetermineDssdFrontEvent(std::vector<DssdDataPoint> &my
 						emax_front_strip = myEvent[n].GetStrip();
 						emax_front_timestamp = myEvent[n].GetTimeStamp();
 						emax_front_time = myEvent[n].GetCFDTime();
+						frontMaxPos = int(n);
 					}
 				}
 			}
@@ -634,12 +887,15 @@ DssdEvent MakeDssdEvents::DetermineDssdFrontEvent(std::vector<DssdDataPoint> &my
 		//Set Values to the event point
 		//----------------------------
 		if(emax_front > 0.){
-			DssdPixel pixel(emax_front_strip, -100);
+			DssdPixel pixel(emax_front_strip, unFoundedStrip);
 			event.SetPixel(pixel);
-			event.SetTimeStamp(emax_front_timestamp);
-			event.SetCFDTime(emax_front_time);
+			event.SetTimeStampX(emax_front_timestamp);
+			event.SetTimeStampY(emax_front_timestamp);
+			event.SetCFDTimeX(emax_front_time);
+			event.SetCFDTimeY(emax_front_time);
 			event.SetEnergyX(emax_front);
 			event.SetEnergyY(0.);
+			event.SetTraceX(myEvent[frontMaxPos].GetTrace(), s1->TRACE_SIZE);
 			//fPixelCounter++;
 		}
 		//------------------------------------------
@@ -648,8 +904,9 @@ DssdEvent MakeDssdEvents::DetermineDssdFrontEvent(std::vector<DssdDataPoint> &my
 		else if(emax_front ==0.){
 			//cout<<"------------------"<<endl;
 			//for(int i = 0; i< myEvent.size();i++)cout<<"strip "<<myEvent[i].strip<<"  energy "<<myEvent[i].energy<<"  time "<<myEvent[i].time<<endl;
-			if(tempEventF.size() <s1->buffer_size)tempEventF.insert(tempEventF.end(), myEvent.begin(), myEvent.end());
+			tempEventF.insert(tempEventF.end(), myEvent.begin(), myEvent.end());
 		}
+		//--------------------------------
 		// Clear memory for the next pixel
 		//--------------------------------
 		myEvent.clear();
@@ -668,9 +925,10 @@ DssdEvent MakeDssdEvents::DetermineDssdBackEvent(std::vector<DssdDataPoint> &myE
 	event.Clear();
 	if(!myEvent.empty()){
 		double emax_back =0.;
-		int emax_back_strip = 0;
+		int emax_back_strip = unFoundedStrip;
 		ullint emax_back_timestamp =0;
 		double emax_back_time =0.;
+		int backMaxPos =0;
 		if(s1->sum_neighboring_strips){
 			//-----------sum-energy of neighboring strips
 			for(ulint n =0; n < myEvent.size();n++){
@@ -725,6 +983,7 @@ DssdEvent MakeDssdEvents::DetermineDssdBackEvent(std::vector<DssdDataPoint> &myE
 						emax_back_strip =myEvent[n].GetStrip();
 						emax_back_timestamp = myEvent[n].GetTimeStamp();
 						emax_back_time = myEvent[n].GetCFDTime();
+						backMaxPos =n;
 					}
 				}
 			}
@@ -733,12 +992,15 @@ DssdEvent MakeDssdEvents::DetermineDssdBackEvent(std::vector<DssdDataPoint> &myE
 		//Set Values to the event point
 		//----------------------------
 		if(emax_back > 0.){
-			DssdPixel pixel(-100,emax_back_strip -128);
+			DssdPixel pixel(unFoundedStrip,emax_back_strip -128);
 			event.SetPixel(pixel);
-			event.SetTimeStamp(emax_back_timestamp);
-			event.SetCFDTime(emax_back_time);
+			event.SetTimeStampX(emax_back_timestamp);
+			event.SetTimeStampY(emax_back_timestamp);
+			event.SetCFDTimeX(emax_back_time);
+			event.SetCFDTimeY(emax_back_time);
 			event.SetEnergyX(0.);
 			event.SetEnergyY(emax_back);
+			event.SetTraceY(myEvent[backMaxPos].GetTrace(), s1->TRACE_SIZE);
 			//fPixelCounter++;
 		}
 		//------------------------------------------
@@ -747,7 +1009,7 @@ DssdEvent MakeDssdEvents::DetermineDssdBackEvent(std::vector<DssdDataPoint> &myE
 		else if( emax_back == 0.){
 			//cout<<"------------------"<<endl;
 			//for(int i = 0; i< myEvent.size();i++)cout<<"strip "<<myEvent[i].strip<<"  energy "<<myEvent[i].energy<<"  time "<<myEvent[i].time<<endl;
-			if(tempEventB.size() <s1->buffer_size)tempEventB.insert(tempEventB.end(), myEvent.begin(), myEvent.end());
+			tempEventB.insert(tempEventB.end(), myEvent.begin(), myEvent.end());
 		}
 
 		//--------------------------------

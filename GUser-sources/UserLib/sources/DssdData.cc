@@ -12,6 +12,8 @@
 */
 DssdData::DssdData(){
 	MapStripNumber();
+	//if(s1->fReverseStrip)
+	ReversePhysicalStripDirection();
 	//fTrace = new ushort[s1->TRACE_SIZE];
 	if(s1->trigger_def ==2)fDifferentialTrace = new int[s1->TRACE_SIZE];
 	fGain = 0;
@@ -511,6 +513,33 @@ void DssdData::MapStripNumber(){
 	s1->dssdFormat.clear();
 
 }	
+
+void DssdData::ReversePhysicalStripDirection(){
+	//0------------->127
+	//becomes
+	//127----------->0
+	//128----------->255
+	//becomes
+	//255----------->128
+	// And keep the rest same
+
+	int strip =0, newStrip =0;
+	int board =0, channel =0;
+	for(std::map<std::pair<int, int >, int >::iterator it = fStripMap.begin();it !=fStripMap.end();it++){
+		strip = it->second;
+		board = it->first.first;
+		channel = it->first.second;
+		std::pair<int, int> key = std::make_pair(board,channel);
+		if(strip >= 0 && strip < 128)
+			newStrip = (127 - strip);
+		else if(strip > 127 && strip < 256) 
+			newStrip = 255 - (strip - 128);
+		else  newStrip = strip;
+		fStripMap[key] = newStrip;
+		fReverseStripMap[newStrip] = key;
+
+	}
+}
 
 void DssdData::PrintMapping(){
 	for(std::map<std::pair<int, int >, int >::iterator it = fStripMap.begin();it !=fStripMap.end();it++){

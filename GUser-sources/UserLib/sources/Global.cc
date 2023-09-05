@@ -495,12 +495,21 @@ void MyGlobal::ReadRunConfigFile(){
 					rate_calcul_time_lapse = std::stoi(value);
 				}
 				// ToF Correlations
-				else if(variable.compare("TOFLOWER")==0){
-					ToF_lower = std::stoll(value);
+				else if(variable.compare("TOFLOWERCOBO")==0){
+					ToF_lower_cobo = std::stoll(value);
 				}
-				else if(variable.compare("TOFUPPER")==0){
-					ToF_upper = std::stoll(value);
+				else if(variable.compare("TOFUPPERCOBO")==0){
+					ToF_upper_cobo = std::stoll(value);
 				}
+// ToF Correlations
+				else if(variable.compare("TOFLOWERNUMEXO2")==0){
+					ToF_lower_numexo2 = std::stoll(value);
+				}
+				else if(variable.compare("TOFUPPERNUMEXO2")==0){
+					ToF_upper_numexo2 = std::stoll(value);
+				}
+
+
 
 				//-------------
 				//Tunnel

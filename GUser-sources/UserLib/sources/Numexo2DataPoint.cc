@@ -13,6 +13,7 @@ Numexo2DataPoint::Numexo2DataPoint(){
 	fTimeStamp = 0;
 	fCFDTime = 0;
 	fEnergy =0.;
+	for(int i =0; i< 992;i++)fTrace[i]=0;
 }
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 //! Constructor
@@ -28,5 +29,9 @@ Numexo2DataPoint::Numexo2DataPoint(int b, int c, ullint t1, double t2, double e)
 Numexo2DataPoint::~Numexo2DataPoint(){}
 
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
-void Numexo2DataPoint::Clear(){fBoard =-100; fChannel =-110; fTimeStamp=0; fCFDTime = 0.; fEnergy =0.;}
+void Numexo2DataPoint::Clear(){
+
+	for(int i =0; i< 992;i++)fTrace[i]=0;
+	fBoard =-100; fChannel =-110; fTimeStamp=0; fCFDTime = 0.; fEnergy =0.;
+}
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------

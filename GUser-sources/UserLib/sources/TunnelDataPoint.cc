@@ -29,7 +29,7 @@ void TunnelDataPoint::Clear(){fMacroPixel.Clear(); fBoard = -100, fChannel = -10
 
 /*! get the current  macro pixel's fNeighborhoodness with respect to another macropixel.
 */
-float TunnelDataPoint::GetNeighborhoodness(TunnelMacroPixel *l){
+double TunnelDataPoint::GetNeighborhoodness(TunnelMacroPixel *l){
 	int dp = 0;
 	int prevN = l->GetN();
 	int currentN = fMacroPixel.GetN();
@@ -80,7 +80,7 @@ float TunnelDataPoint::GetNeighborhoodness(TunnelMacroPixel *l){
 
 /*! get the current  macro pixel's fNeighborhoodness with respect to another macropixel.
 */
-float TunnelDataPoint::GetNeighborhoodness(TunnelDataPoint *l){
+double TunnelDataPoint::GetNeighborhoodness(TunnelDataPoint *l){
 	int dp = 0;
 	int prevN = l->GetMacroPixel().GetN();
 	int currentN = fMacroPixel.GetN();

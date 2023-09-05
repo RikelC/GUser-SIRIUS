@@ -13,4 +13,6 @@ Event::Event(){
 Event::~Event(){
 }
 
-
+void Event::Clear(){
+	fDssdEvent.Clear();
+}

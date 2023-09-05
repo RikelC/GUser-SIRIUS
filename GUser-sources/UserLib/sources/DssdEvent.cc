@@ -11,17 +11,25 @@
 DssdEvent::DssdEvent(){
 	fPixel.SetX(-100); 
 	fPixel.SetY(-100); 
-	fTimeStamp = 0; 
-	fCFDTime = 0.; 
+	fTimeStampX = 0; 
+	fTimeStampY = 0; 
+	fCFDTimeX = 0.; 
+	fCFDTimeY = 0.; 
 	fEnergyX = 0.;
 	fEnergyY = 0.;
+	for(int i =0; i<992; i++){
+		fTraceX[i]=0;
+		fTraceY[i]=0;
+	}
 }
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 ////! Constructor
-DssdEvent::DssdEvent(DssdPixel p, ullint t1, double t2, double ex, double ey){
+DssdEvent::DssdEvent(DssdPixel p, ullint t1, ullint t2, double t3,double t4, double ex, double ey){
 	fPixel = p;
-        fTimeStamp = t1;
-	fCFDTime = t2; 
+	fTimeStampX = t1;
+	fTimeStampY = t2;
+	fCFDTimeX = t3; 
+	fCFDTimeY = t4; 
 	fEnergyX = ex;
 	fEnergyY = ey;
 }
@@ -31,6 +39,16 @@ DssdEvent::DssdEvent(DssdPixel p, ullint t1, double t2, double ex, double ey){
 DssdEvent::~DssdEvent(){}
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 void DssdEvent::Clear(){
-	fPixel.Clear(); fTimeStamp =0; fCFDTime = 0.; fEnergyX = 0.; fEnergyY = 0.;
+	for(int i =0; i<992; i++){
+		fTraceX[i]=0;
+		fTraceY[i]=0;
+	}
+	fPixel.Clear(); 
+	fTimeStampX =0;
+	fTimeStampY =0;
+	fCFDTimeX = 0.;
+	fCFDTimeY = 0.;
+	fEnergyX = 0.; 
+	fEnergyY = 0.;
 }
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
