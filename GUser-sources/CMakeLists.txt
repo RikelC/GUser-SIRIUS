@@ -34,6 +34,34 @@ else()
    message (WARNING "CMAKE_INSTALL_PREFIX not found !!! ")
 endif()
 
+
+
+
+ set(MFM_DIR /home/acqexp/Analysis/MFMlib/el7.x86_64/v21.07.28)
+ #include_directories(${CMAKE_BINARY_DIR})
+ include_directories(${MFM_DIR}/include/)
+ #include_directories(${MFM_DIR}/include/GanTape/)
+ 
+ find_library(MFM_LIBRARY NAMES MFM HINTS ${MFM_DIR}/lib )
+ #find the headers
+ find_path(MFM_INCLUDE_DIR NAMES MFMAllFrames.h HINTS ${MFM_DIR}/include/)
+ 
+ include(FindPackageHandleStandardArgs)
+ 
+ find_package_handle_standard_args(libMFM DEFAULT_MSG
+                                   MFM_LIBRARY
+                                   MFM_INCLUDE_DIR)
+ #make some checks
+ mark_as_advanced(MFM_LIBRARY MFM_INCLUDE_DIR)
+ if(LIBMFM_FOUND AND NOT TARGET libMFM::libMFM)#1st arg is set if find_package_handle_standard_args() succeeds and 2nd part NOT TARGET ensures that the library is not already declared as a target withing the     current project
+   add_library(libMFM::libMFM SHARED IMPORTED)#SHARED= dynamically linked library and IMPORTED= library is not built by the current project
+ set_target_properties(
+     libMFM::libMFM
+     PROPERTIES
+       INTERFACE_INCLUDE_DIRECTORIES "${MFM_INCLUDE_DIR}"
+       IMPORTED_LOCATION ${MFM_LIBRARY})
+ endif()
+
 #------------
 # GRU and MFM
 #--------------
@@ -41,8 +69,9 @@ set(GRULIBDIR  $ENV{GRUDIR}/build/)
 set(GRUINCDIR   $ENV{GRUDIR}/include/) 
 set(VIGRUDIR    $ENV{GRUDIR}/vigru/)
 set(GSOAPDIR    $ENV{GRUDIR}/gsoap/)
-set(MFM_DIR     $ENV{MFMDIR})
-set(MFMINCDIR   $ENV{MFMDIR}/include/)
+#set(MFM_DIR     $ENV{MFMDIR})
+#set(MFMINCDIR   $ENV{MFMDIR}/include/)
+set(MFMINCDIR   ${MFM_DIR}/include/)
 
 Set (GRUFLAGS     -I${GRUINCDIR} -I${CMAKE_SOURCE_DIR}  -I${VIGRUDIR}   -I${GSOAPDIR} -I${MFM_DIR} -I${MFMINCDIR})
 

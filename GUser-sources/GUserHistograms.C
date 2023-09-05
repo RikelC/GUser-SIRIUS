@@ -4,7 +4,17 @@
  *
  */
 #include "./GUser.h"
-
+void GUser::CreateAnalysisHistograms ()
+{
+	hx= (TH1F*)gROOT->Get("hx1");
+	if(!hx) hx=new TH1F("hx1","X",NX,0,NX);
+	hy= (TH1F*)gROOT->Get("hy1");
+	if(!hy)hy=new TH1F("hy1","Y",NY,0,NY);
+	hxinit =  (TH1F*)gROOT->Get("hxinit");
+	if(!hxinit)hxinit=new TH1F("hxinit","X bin init",136,0,136);
+	hyinit = (TH1F*)gROOT->Get("hyinit");	
+	if(!hyinit)hyinit=new TH1F("hyinit","Y bin init",68,0,68);	
+}
 void GUser::CreateHistograms ()
 {
 	TString name;
@@ -157,6 +167,11 @@ void GUser::CreateHistograms ()
 			}
 		}
 		//
+		famname.Form("CFDTimeDiff");
+		for(int iboard = 0;iboard < 16;iboard++){
+			hCFDTimeDiff[iboard] = new TH2F(Form("CFDTimeDiff_board%d", s1->boardList_DSSD[iboard]), "CFD Time DIff; channel number; CFD Time Diff (ns)",16,0,16,10000,-500,500);
+			GetSpectra()->AddSpectrum(hCFDTimeDiff[iboard],famname);
+		}
 		famname.Form("DssdSpectra");
 		h_strip_trigger = new TH2F("h_strip_trigger"," ;strip number; Leading edge trigger (sample number)", 260,0,260,992,0,992);
 		h_strip_zeroCrTime = new TH2F("h_strip_zeroCrTime","; strip number; CFD zero-crossing time (ns)", 260,0,260,992,0,992);
@@ -235,35 +250,50 @@ void GUser::CreateHistograms ()
 
 
 		famname.Form("CorrelationSpectra");
-		h_E_frontsumCorr = new TH1F("h_E_frontsumCorr","h front sum correlated", 2000,0,20000);
-		GetSpectra()->AddSpectrum(h_E_frontsumCorr,famname);
 		//Tof
-		h_strip_Tof1 = new TH2F("h_strip_Tof1"," DSSD vs CoBo;strip number;ToF (x10 ns)", 260,0,260, 1000,-500,500);
-		GetSpectra()->AddSpectrum( h_strip_Tof1,famname);
-		h_dssdE_Tof1 = new TH2F("h_dssdE_Tof1","DSSD vs CoBo;E;ToF (x10 ns)", 5000,0,30000, 1000,-500,500);
-		GetSpectra()->AddSpectrum( h_dssdE_Tof1,famname);
-		h_strip_Tof2 = new TH2F("h_strip_Tof2","DSSD vs SeD Numexo2; strip number;ToF (ns)", 260,0,260, 5000,-500,500);
-		GetSpectra()->AddSpectrum( h_strip_Tof2,famname);
-		h_dssdE_Tof2 = new TH2F("h_dssdE_Tof2","DSSD vs seD Numexo2; E; ToF (ns)", 5000,0,30000, 1000,-500,500);
-		GetSpectra()->AddSpectrum( h_dssdE_Tof2,famname);
-		h_strip_Tof3 = new TH2F("h_strip_Tof3","DSSD vs SeD Numexo2; strip number;ToF (x10 ns)", 260,0,260, 1000,-500,500);
-		GetSpectra()->AddSpectrum( h_strip_Tof3,famname);
-		h_dssdE_Tof3 = new TH2F("h_dssdE_Tof3","DSSD vs seD Numexo2; E; ToF (x10 ns)", 5000,0,30000, 1000,-500,500);
-		GetSpectra()->AddSpectrum( h_dssdE_Tof3,famname);
+		h_stripX_ToFNumexo = new TH2F("h_stripX_ToFNumexo"," DSSD X vs ToF(Numexo2);strip number;ToF (x10 ns)", 128,0,128, 1000,-500,500);
+		h_stripY_ToFNumexo = new TH2F("h_stripY_ToFNumexo"," DSSD Y vs ToF(Numexo2);strip number;ToF (x10 ns)", 128,0,128, 1000,-500,500);
+		h_stripX_CFDToFNumexo = new TH2F("h_stripX_CFDToFNumexo"," DSSD X vs ToF(Numexo2 CFD);strip number;ToF (ns)", 128,0,128, 1000,-500,500);
+		h_stripY_CFDToFNumexo = new TH2F("h_stripY_CFDToFNumexo"," DSSD Y vs ToF(Numexo2 CFD);strip number;ToF (ns)", 128,0,128, 1000,-500,500);
+		h_stripX_ToFCobo = new TH2F("h_stripX_ToFCoboo"," DSSD X vs ToF(CoBo);strip number;ToF (x10 ns)", 128,0,128, 1000,-500,500);
+		h_stripY_ToFCobo = new TH2F("h_stripY_ToFCobo"," DSSD Y vs ToF(CoBo);strip number;ToF (x10 ns)", 128,0,128, 1000,-500,500);
+		GetSpectra()->AddSpectrum( h_stripX_ToFNumexo,famname);
+		GetSpectra()->AddSpectrum( h_stripY_ToFNumexo,famname);
+		GetSpectra()->AddSpectrum( h_stripX_CFDToFNumexo,famname);
+		GetSpectra()->AddSpectrum( h_stripY_CFDToFNumexo,famname);
+		GetSpectra()->AddSpectrum( h_stripX_ToFCobo,famname);
+		GetSpectra()->AddSpectrum( h_stripY_ToFCobo,famname);
+		h_FrontE_ToFNumexo = new TH2F("h_FrontE_ToFNumexo","DSSD Front E vs ToF Numexo2;E;ToF (x10 ns)", 5000,0,30000, 1000,-500,500);
+		h_BackE_ToFNumexo = new TH2F("h_BackE_ToFNumexo","DSSD Back E vs ToF Numexo2;E;ToF (x10 ns)", 5000,0,30000, 1000,-500,500);
+		h_FrontE_CFDToFNumexo = new TH2F("h_FrontE_CFDToFNumexo","DSSD Front E vs ToF CFD Numexo2;E;ToF (ns)", 5000,0,30000, 1000,-500,500);
+		h_BackE_CFDToFNumexo = new TH2F("h_BackE_CFDToFNumexo","DSSD Back E vs ToF CFD Numexo2;E;ToF (ns)", 5000,0,30000, 1000,-500,500);
+		h_FrontE_ToFCobo = new TH2F("h_FrontE_ToFCobo","DSSD Front E vs ToF CoBo;E;ToF (x10 ns)", 5000,0,30000, 1000,-500,500);
+		h_BackE_ToFCobo = new TH2F("h_BackE_ToFCobo","DSSD Back E vs ToF CoBo;E;ToF (x10 ns)", 5000,0,30000, 1000,-500,500);
+		GetSpectra()->AddSpectrum( h_FrontE_ToFNumexo,famname);
+		GetSpectra()->AddSpectrum( h_BackE_ToFNumexo,famname);
+		GetSpectra()->AddSpectrum( h_FrontE_CFDToFNumexo,famname);
+		GetSpectra()->AddSpectrum( h_BackE_CFDToFNumexo,famname);
+		GetSpectra()->AddSpectrum( h_FrontE_ToFCobo,famname);
+		GetSpectra()->AddSpectrum( h_BackE_ToFCobo,famname);
 
-		h_dssdEvt_Tof = new TH2F("h_dssdEvt_Tof","DSSD vs CoBo; E; ToF (x10 ns)", 5000,0,30000, 1000,-500,500);
-		GetSpectra()->AddSpectrum( h_dssdEvt_Tof,famname);
+		h_Efront_Esed = new TH2F("h_Efront_Esed","DSSD Front E vs SeD Numexo2; E Front ; E SeD", 2000,10000,20000, 2000,0,10000);
+		h_Eback_Esed = new TH2F("h_Eback_Esed","DSSD Back E vs SeD Numexo2; E Front ; E SeD", 2000,10000,20000, 2000,0,10000);
+		GetSpectra()->AddSpectrum( h_Efront_Esed,famname);
+		GetSpectra()->AddSpectrum( h_Eback_Esed,famname);
+		h_stripX_Esed = new TH2F("h_stripX_Esed","DSSD X vs E SeD Numexo2; strip number (X); E SeD",128,0,128, 2000,0,10000);
+		h_stripY_Esed = new TH2F("h_stripY_Esed","DSSD Y vs E SeD Numexo2; strip number (Y); E SeD",128,0,128, 2000,0,10000);
+		GetSpectra()->AddSpectrum( h_stripX_Esed,famname);
+		GetSpectra()->AddSpectrum( h_stripY_Esed,famname);
 
-		h_Esi_Esed = new TH2F("h_Esi_Esed","DSSD vs SeD Numexo2; E Si ; E SeD", 2000,10000,20000, 2000,0,10000);
-		GetSpectra()->AddSpectrum( h_Esi_Esed,famname);
-		h_strip_Esed = new TH2F("h_strip_Esed","DSSD vs SeD Numexo2; strip number; E SeD",260,0,260, 2000,0,10000);
-		GetSpectra()->AddSpectrum( h_strip_Esed,famname);
-
+		hbar2DmPRecoil=new TH2F("bar2DmPRecoil","XvsY bar[mm]",1350,-200,200,1530,-170,170);
+		GetSpectra()->AddSpectrum(  hbar2DmPRecoil   ,famname);
 		h_trackZSeDX = new TH2F("h_trackZSeDX", "Track ZX (X pos in SeD);  Z (cm); X in SeD (cm)",120,0,120,200,-10,10 );
 		h_trackZSeDY = new TH2F("h_trackZSeDY", "Track ZY (Y pos in SeD);  Z (cm); Y in SeD (cm)",120,0,120,200,-10,10 );
+		//h_trackXYZ = new TH3F("h_trackXYZ", "Track XY(Z);  Z (cm); X (cm); Y (cm)",120,0,120,200,-10,10,200,-10,10 );
 
 		GetSpectra()->AddSpectrum( h_trackZSeDX, famname);
 		GetSpectra()->AddSpectrum( h_trackZSeDY, famname);
+		//GetSpectra()->AddSpectrum( h_trackXYZ, famname);
 
 		h_XDistance = new TH2F("h_XDistance", "X SeD Position vs track distance; X in SeD (cm); Track Distance (cm)",200,-10,10,2000,95,105);
 		h_YDistance = new TH2F("h_YDistance", "Y SeD Position vs track distance; Y in SeD (cm); Track Distance (cm)",200,-10,10,2000,95,105);
@@ -391,13 +421,9 @@ void GUser::CreateHistograms ()
 
 	//histo definitions for SeD
 	famname.Form("SedSpectra");
-	hx=new TH1F("hx1","X",NX,0,NX);
 	GetSpectra()->AddSpectrum(hx,famname);
-	hy=new TH1F("hy1","Y",NY,0,NY);
 	GetSpectra()->AddSpectrum(hy,famname);
-	hyinit=new TH1F("hyinit","Y bin init",68,0,68);	
 	GetSpectra()->AddSpectrum(hyinit,famname);
-	hxinit=new TH1F("hxinit","X bin init",136,0,136);
 	GetSpectra()->AddSpectrum(hxinit,famname);
 	hxa=new TH1F("hxa","X",NX,0,NX);
 	GetSpectra()->AddSpectrum(hxa,famname);

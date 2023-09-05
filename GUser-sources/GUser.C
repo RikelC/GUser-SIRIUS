@@ -66,10 +66,12 @@ GUser::GUser (int mode, GDevice* _fDevIn, GDevice* _fDevOut):GAcq(_fDevIn,_fDevO
 	tEvent                         = new MakeTunnelEvents();
 	tData                          = new TunnelData();
 	calib                          = new Calibration();
-	coboData                       = new TrackerData();
+	coboData                       = new TrackerCoBoData();
 	timeAlign                      = new TimeAlignment();
 	correlation                    = new Correlation();
 	userTree                       = new UTTree();
+	//	fRecoilEvent = new RecoilEvent();
+	//	fDecayEvent = new DecayEvent();
 	frameCounter                   = new ullint[8];
 	tunnel_rate_pad                = new double[s1->NofMacroPixels];
 	tunnel_rate_board              = new double[s1->NBOARDS_TUNNEL];
@@ -113,8 +115,8 @@ GUser::GUser (int mode, GDevice* _fDevIn, GDevice* _fDevOut):GAcq(_fDevIn,_fDevO
 	reaGenericEnergy               = 0;
 	reaGenericTime                 = 0;
 	belong_to_a_merge_frame        = false;
-        reached_eof                    = false; 
-jitter =0;
+	reached_eof                    = false; 
+	jitter =0;
 	for(int i = 0; i < 8; i++)frameCounter[i] = 0;
 	for(int i = 0; i < s1->NSTRIPS_DSSD; i++){
 		dssd_rate_strip[i] =0.;
@@ -136,7 +138,7 @@ jitter =0;
 			dssd_event_counter[i][j] =0;
 		}
 	}
-
+	CreateAnalysisHistograms();
 	//----------------- Create histograms -----------------
 	if(s1->fsaveHisto || s1->acquisitionMode.compare("ONLINE") == 0)
 		CreateHistograms();
@@ -157,8 +159,10 @@ GUser::~GUser()  {
 	  cout<<"tot "<<tot<<endl;
 	  */
 
-	if(s1->fsaveHisto || s1->acquisitionMode.compare("ONLINE") == 0)
+	if(s1->fsaveHisto || s1->acquisitionMode.compare("ONLINE") == 0){
 		DeleteHistograms();
+		delete [] evtCounter;
+	}
 
 	delete [] frameCounter;
 	delete [] tunnel_rate_pad;
@@ -167,25 +171,25 @@ GUser::~GUser()  {
 	delete [] dssd_rate_board;
 	delete [] rate_counterPoint_dssd;
 	delete [] rate_counterPoint_tunnel;
-	delete [] evtCounter;
 
 
-	dssdDataVec0.clear();
-	dssdDataVec1.clear();
-	trackerNumexoDataVec.clear();
+	dssdDataPointVec.clear();
+	dssdDataPointVec_merged.clear();
+
+	trackerNumexo2EventVec.clear();
+	trackerNumexo2EventVec_merged.clear();
+
+	trackerCoBoEventVec.clear();
+	trackerCoBoEventVec_merged.clear();
+
 	tunnelDataVec.clear();
-	dssdEventVec.clear();
-	dssdEventVec1.clear();
-	trackerEventVec.clear();
-
-	dssdDataVec0_merged.clear();
-	dssdDataVec1_merged.clear();
-	trackerNumexoDataVec_merged.clear();
 	tunnelDataVec_merged.clear();
-	dssdEventVec_merged.clear();
-	dssdEventVec1_merged.clear();
-	trackerEventVec_merged.clear();
 
+	dssdEventVec.clear();
+	dssdEventVec_merged.clear();
+
+	recoilTypeEvents.clear();
+	decayTypeEvents.clear();
 
 	if(fCoboframe) delete fCoboframe;
 	if(fInsideframe) delete fInsideframe;
@@ -206,6 +210,8 @@ GUser::~GUser()  {
 	if(timeAlign) delete timeAlign;
 	if(correlation) delete correlation;
 	if(userTree) delete userTree;
+	//if(fRecoilEvent) delete fRecoilEvent;
+	//if(fDecayEvent) delete fDecayEvent;
 	cout<<"GUser Desctructor called"<<endl;
 	gROOT->cd();
 }
@@ -215,7 +221,7 @@ GUser::~GUser()  {
 */
 void GUser::InitUser()
 {
-	dData->PrintMapping();
+	//dData->PrintMapping();
 	for(int i = 0; i < 8;i++)frameCounter[i] =0;
 	rate_counter_dssd=0;
 	rate_counter_tunnel=0;
@@ -258,10 +264,9 @@ void GUser::InitUserRun()
 */
 void GUser::EndUserRun()
 {
-reached_eof = true; 
-	FindCorrelations_unmerged();
-	FindCorrelations_merged();
-
+	reached_eof = true; 
+	FindCorrelations("");
+	//correlations->Clear();
 	tEvent->Construct(tunnelDataVec, htunnel1_E1E2,  htunnel2_E1E2, htunnel3_E1E2, htunnel4_E1E2, htunnel1_dt,htunnel2_dt, htunnel3_dt, htunnel4_dt);
 
 	cout<< "calling GUser::EndUserRun()"<<endl;
@@ -290,11 +295,10 @@ void GUser::User()
 	nb++;
 	cf = (MFMCommonFrame*)(((GEventMFM*)GetEvent())->GetFrame());
 	int type = cf->GetFrameType();
-
+	//cf->SetAttributs();
 	switch (type) {
 		case MFM_COBOF_FRAME_TYPE:
 		case MFM_COBO_FRAME_TYPE:
-			frameCounter[0]++;
 			break;
 		case MFM_EBY_EN_FRAME_TYPE:
 		case MFM_EBY_TS_FRAME_TYPE:
@@ -311,14 +315,11 @@ void GUser::User()
 			frameCounter[4]++;
 			break;
 		case MFM_REA_GENE_FRAME_TYPE:
-			frameCounter[5]++;
 			break;
 		case MFM_SIRIUS_FRAME_TYPE:
-			frameCounter[6]++;
 			break;
 		case MFM_MERGE_EN_FRAME_TYPE:
 		case MFM_MERGE_TS_FRAME_TYPE:
-			frameCounter[7]++;
 			break;
 		default:
 			nberror++;
@@ -339,22 +340,26 @@ void GUser::User()
 void GUser::UserFrame(MFMCommonFrame* commonframe){
 
 	int type =  commonframe->GetFrameType();
-
+	//commonframe->SetAttributs();
 	PrintInfo(commonframe);
 	if ((type == MFM_MERGE_EN_FRAME_TYPE)or(type == MFM_MERGE_TS_FRAME_TYPE)) {
+		frameCounter[7]++;
 		UserMergeFrame(commonframe);
 	}  
 	else if ((type == MFM_COBO_FRAME_TYPE) or (type== MFM_COBOF_FRAME_TYPE)) {
+		frameCounter[0]++;
 		UserCoboFrame(commonframe);
-		userTree->FillCoBoFrames();
+		//userTree->FillCoBoFrames();
 	}
 	else if (type == MFM_SIRIUS_FRAME_TYPE){
+		frameCounter[6]++;
 		UserSiriusFrame(commonframe);
-		userTree->FillSiriusFrames();
+		//userTree->FillSiriusFrames();
 	}
 	else if(type == MFM_REA_GENE_FRAME_TYPE){
+		frameCounter[5]++;
 		UserGenericFrame(commonframe);
-		userTree->FillReaGenericFrames();
+		//	userTree->FillReaGenericFrames();
 	}
 
 }
@@ -384,7 +389,7 @@ void GUser::UserMergeFrame(MFMCommonFrame* commonframe){
 	}
 	belong_to_a_merge_frame = false;
 	// At this point you can do treatement inter frames
-	FindCorrelations_merged();
+	FindCorrelations("Merged");
 }
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 //! Treatment of Generic frames (for the Tunnel detectors)
@@ -459,18 +464,18 @@ void GUser::UserSiriusFrame( MFMCommonFrame* commonframe){
 	stripnumber = dData->GetStripNumber(&board, &channel);
 	dssdBoardNo = dData->GetDssdBoardNumber(&board); 
 	//		cout<<"Before time alignment boardId:  "<<board<<" , channel:  "<<channel<<"  strip "<<stripnumber<<" TimeStamp:  "<<timestamp<<" , EventNumber: "<<eventnumber<<endl;
-//		timeAlign->AlignTimeStamp(timestamp, board, channel);//align either timestamp or the CFD time
+	//timeAlign->AlignTimeStamp(timestamp, board, channel);//align either timestamp or the CFD time
 	//		cout<<"After time alignment boardId:  "<<board<<" , channel:  "<<channel<<"  strip "<<stripnumber<<" TimeStamp:  "<<timestamp<<" , EventNumber: "<<eventnumber<<endl;
-	
 
 
-//Align time stamp again
-/*
-jitter = static_cast<llint>(timestamp - prev_timestamp);
-if(TMath::Abs(jitter) < 5){//within 2 ticks then correct
-timestamp = timestamp - jitter;
-}
-prev_timestamp = timestamp;*/
+
+	//Align time stamp again
+	/*
+	   jitter = static_cast<llint>(timestamp - prev_timestamp);
+	   if(TMath::Abs(jitter) < 5){//within 2 ticks then correct
+	   timestamp = timestamp - jitter;
+	   }
+	   prev_timestamp = timestamp;*/
 	// set dssd data values for treatment
 	dData->SetChannel(channel);
 	dData->SetBoard(board);
@@ -490,15 +495,24 @@ prev_timestamp = timestamp;*/
 	// Computation
 	// -----------------------
 	dData->GetSignalInfo();
-	Energy = filter->Perform(dData, hTrap[iboard][channel]);
+	if(s1->fsaveHisto)Energy = filter->Perform(dData, hTrap[iboard][channel]);
+	else Energy = filter->Perform(dData, NULL);
 	if(dData->GainSwitched()) Energy += 10000; 
 	calibEnergy = calib->Perform(dData);//Calibration
 	//get CFD time in (ns)
 	if(board==s1->trackerNumexoBoard && channel == s1->trackerNumexoChannel)Energy = dData->GetSignalHeight();
 	//if(dData->GainSwitched()){
-	if(board== s1->trackerNumexoBoard && channel == s1->trackerNumexoChannel)Time = cfd->Perform(dData,"SED", hCFD[iboard][channel]);
-	else Time = cfd->Perform(dData,"DSSD", hCFD[iboard][channel]);
-//	timeAlign->AlignTime(Time, board, channel);
+	if(board== s1->trackerNumexoBoard && channel == s1->trackerNumexoChannel){
+		if(s1->fsaveHisto) Time = cfd->Perform(dData,"SED", hCFD[iboard][channel]);
+		else Time = cfd->Perform(dData,"SED", NULL);
+
+	}
+	else{
+		if(s1->fsaveHisto) Time = cfd->Perform(dData,"DSSD", hCFD[iboard][channel]);
+		else Time = cfd->Perform(dData,"DSSD", NULL);
+
+	}
+	timeAlign->AlignTime(Time, board, channel);
 	double zeroCr = cfd->GetZeroCrossingSample();
 	ushort Mpos = dData->GetMaximumPosition();
 	//timeAlign->align_time( zeroCr, board, channel);
@@ -508,27 +522,39 @@ prev_timestamp = timestamp;*/
 	dPoint.SetCFDTime(Time);
 	dPoint.SetStrip(stripnumber);
 	dPoint.SetEnergy(Energy);
+	dPoint.SetBoard(board);
+	dPoint.SetChannel(channel);
+	dPoint.SetBoardIndex(iboard);
+	//dPoint.SetTrace(dData->GetTrace(), s1->TRACE_SIZE);
 
 
-	if(Energy > 100 && stripnumber >= 0 && stripnumber < 256){//For pixel Construction
-		if(belong_to_a_merge_frame) dssdDataVec0_merged.push_back(dPoint);
-		else dssdDataVec0.push_back(dPoint);
-	}
+	if(Energy > 0. && stripnumber >= 0 && stripnumber < 256){//For pixel Construction
 
-	if(Energy > 0 && stripnumber >=0 && dData->GetStripNumber() < 128){
-		if(belong_to_a_merge_frame) dssdDataVec1_merged.push_back(dPoint);// tof with timestamps
-		else dssdDataVec1.push_back(dPoint);
+		for (int i = s1->nStart_trace; i < 992 - s1->nEnd_trace; i++) {
+			fSiriusframe->GetParameters(i, &value);
+			j = i - s1->nStart_trace;
+			if(i < s1->TRACE_SIZE)
+				dPoint.SetTraceValue(j, value);
+		}
+		if(belong_to_a_merge_frame) dssdDataPointVec_merged.push_back(dPoint);
+		else dssdDataPointVec.push_back(dPoint);
 	}
 
 	//if(board==164 && channel ==4 && TMath::Abs(dData->GetSignalHeight()) > 0 && TMath::Abs(dData->GetSignalHeight()) < 2000 && dData -> GetMaximumPosition() > 470 && dData -> GetMaximumPosition() < 500){
 	if(board== s1->trackerNumexoBoard && channel == s1->trackerNumexoChannel){
-		sedPoint.SetTimeStamp(timestamp);
-		sedPoint.SetCFDTime(Time);
-		sedPoint.SetStrip(stripnumber);
-		sedPoint.SetEnergy(Energy);
+		sedNumexo2Event.SetTimeStamp(timestamp);
+		sedNumexo2Event.SetCFDTime(Time);
+		sedNumexo2Event.SetEnergy(Energy);
+		for (int i = s1->nStart_trace; i < 992 - s1->nEnd_trace; i++) {
+			fSiriusframe->GetParameters(i, &value);
+			j = i - s1->nStart_trace;
+			if(i < s1->TRACE_SIZE)
+				sedNumexo2Event.SetTraceValue(j, value);
+		}
+		//sedNumexo2Event.SetTrace(dData->GetTrace(), s1->TRACE_SIZE);
 
-		if(belong_to_a_merge_frame)trackerNumexoDataVec_merged.push_back(sedPoint);
-		else trackerNumexoDataVec.push_back(sedPoint);
+		if(belong_to_a_merge_frame)trackerNumexo2EventVec_merged.push_back(sedNumexo2Event);
+		else trackerNumexo2EventVec.push_back(sedNumexo2Event);
 	}
 
 	//Fill histograms
@@ -622,7 +648,7 @@ prev_timestamp = timestamp;*/
 
 	}
 
-	FindCorrelations_unmerged();
+	FindCorrelations("Unmerged");
 }
 
 
@@ -634,6 +660,7 @@ prev_timestamp = timestamp;*/
  *
  */
 
+//---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 void GUser::UserCoboFrame(MFMCommonFrame* commonframe){
 
 	fCoboframe->SetAttributs(commonframe->GetPointHeader());
@@ -707,8 +734,8 @@ void GUser::UserCoboFrame(MFMCommonFrame* commonframe){
 
 
 	// store in a vector to check if there are multiple events correlated by the merger
-	//TrackerEvent evt( barxm, barym, sumx, sumy, multx, multy, timestamp);
-	TrackerEvent evt(
+	//TrackerCoBoEvent evt( barxm, barym, sumx, sumy, multx, multy, timestamp);
+	TrackerCoBoEvent evt(
 			coboData->GetBarXmProjection(),
 			coboData->GetBarYmProjection(),
 			coboData->GetBarZmProjection(),
@@ -718,8 +745,8 @@ void GUser::UserCoboFrame(MFMCommonFrame* commonframe){
 			coboData->GetMultY(),
 			coboData->GetTimeStamp()
 			);
-	if(belong_to_a_merge_frame)trackerEventVec_merged.push_back(evt);
-	else trackerEventVec.push_back(evt);
+	if(belong_to_a_merge_frame)trackerCoBoEventVec_merged.push_back(evt);
+	else trackerCoBoEventVec.push_back(evt);
 
 	//filling histos
 
@@ -775,6 +802,7 @@ void GUser::UserCoboFrame(MFMCommonFrame* commonframe){
 
 }
 
+//---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 void GUser::UserEbyedatframeFrame(MFMCommonFrame * commonframe)
 {
 	fEbyedatframe->SetAttributs(frame->GetPointHeader());
@@ -790,6 +818,7 @@ void GUser::UserEbyedatframeFrame(MFMCommonFrame * commonframe)
 	}
 }
 
+//---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 void GUser::UserMutantFrame(MFMCommonFrame * commonframe){
 	fMutantframe->SetAttributs(frame->GetPointHeader());
 	eventnumber = fMutantframe->GetEventNumber();
@@ -809,11 +838,14 @@ void GUser::InitTTreeUser()
 {
 }
 
+//---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 void GUser::InitUserTTree(char* filename)
 {
-	userTree->Initialize(filename, dData, tData, coboData);
+	//userTree->Initialize(filename, dData, tData, coboData);
+	userTree->Initialize(filename, fRecoilEvent, fDecayEvent);
 }
 
+//---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 
 void GUser::SaveUserTTree(){
 	userTree->Save();
@@ -881,238 +913,163 @@ void GUser::get_Count_Rates(int type){
 }
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 
-
-void GUser::FindCorrelations_unmerged(){
-	if(dssdDataVec0.size() >= s1->buffer_size || reached_eof){
-		//dssdEventVec = dEvent->Construct("FB",dssdDataVec0, h_delT_ff, h_delT_fb, h_delT_bf, h_delT_bb);
-		dssdEventVec = dEvent->Construct("FB",dssdDataVec0);
-
-		if(s1->fsaveHisto || s1->acquisitionMode.compare("ONLINE") == 0){
-			for (std::vector<DssdEvent>::iterator it = dssdEventVec.begin() ; it != dssdEventVec.end(); ++it){				
-				h_E_frontBack->Fill((*it).GetEnergyX(), (*it).GetEnergyY());
-				h_DSSD_XY_hit->Fill((*it).GetPixel().GetX(), (*it).GetPixel().GetY());
-			}
-
-		}
+void GUser::FindCorrelations(std::string mode=""){
+	if(mode.compare("Merged")==0)FindCorrelationsIn(dssdDataPointVec_merged, dssdEventVec_merged, trackerNumexo2EventVec_merged, trackerCoBoEventVec_merged);
+	else if(mode.compare("Unmerged")==0)FindCorrelationsIn(dssdDataPointVec, dssdEventVec, trackerNumexo2EventVec, trackerCoBoEventVec);
+	else{
+		FindCorrelationsIn(dssdDataPointVec_merged, dssdEventVec_merged, trackerNumexo2EventVec_merged, trackerCoBoEventVec_merged);
+		FindCorrelationsIn(dssdDataPointVec, dssdEventVec, trackerNumexo2EventVec, trackerCoBoEventVec);
 	}
+}
+//---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 
-	if(dssdDataVec1.size() >= s1->buffer_size || reached_eof)
-	{
-		llint tof1 =0;
-		double tof2 =0;
-		llint tof3 =0;
-
-		dEvent->SortInTime(dssdDataVec1);
-		sedPoint.SortInTime(trackerNumexoDataVec);
+void GUser::FindCorrelationsIn(std::vector<DssdDataPoint> &dssdDataPoints, std::vector<DssdEvent> &dssdEvents, std::vector<TrackerNumexo2Event> &trackerNumexo2Events, std::vector<TrackerCoBoEvent> &trackerCoBoEvents){
 
 
-		if(dssdDataVec1.size() > 0 && trackerNumexoDataVec.size() > 0){
+	if((dssdDataPoints.size() >= s1->buffer_size) || reached_eof){
+		//Do this before making pixels as the vector is emptied afterwards
+		double tof =0.;
+		for(unsigned int i =0; i< dssdDataPoints.size(); i++){
+			iboard =  dssdDataPoints[i].GetBoardIndex();
+			channel = dssdDataPoints[i].GetChannel();
+			for(unsigned int j =0; j< trackerNumexo2Events.size(); j++){
+				tof = dssdDataPoints[i].GetCFDTime() - trackerNumexo2Events[j].GetCFDTime();
+				if(tof > -500 && tof < 500)
+					hCFDTimeDiff[iboard]->Fill(channel, tof);
 
-			for(unsigned int i = 0; i < dssdDataVec1.size(); i++){
-				for(unsigned int j = 0; j < trackerNumexoDataVec.size(); j++){
-					tof2 = dssdDataVec1[i].GetCFDTime() - trackerNumexoDataVec[j].GetCFDTime();
-					h_Esi_Esed->Fill(dssdDataVec1[i].GetEnergy(), trackerNumexoDataVec[j].GetEnergy());
-					h_strip_Esed->Fill(dssdDataVec1[i].GetStrip(), trackerNumexoDataVec[j].GetEnergy());
-					h_dssdE_Tof2->Fill(dssdDataVec1[i].GetEnergy(), tof2);
-					h_strip_Tof2->Fill(dssdDataVec1[i].GetStrip(), tof2);
-					//tof = dssd timestamp - Sed Numexo timestamp
-					tof3 = static_cast<llint>(dssdDataVec1[i].GetTimeStamp() - trackerNumexoDataVec[j].GetTimeStamp());
-					h_dssdE_Tof3->Fill(dssdDataVec1[i].GetEnergy(), tof3);
-					h_strip_Tof3->Fill(dssdDataVec1[i].GetStrip(), tof3);
-
-				}
 			}
 		}
 
+		//----------pixel construction---------
 
-		// with timestamps
-		if(dssdDataVec1.size() > 0 && trackerEventVec.size() > 0){
-			for(unsigned int i = 0; i < dssdDataVec1.size(); i++){
-				for(unsigned int j = 0; j < trackerEventVec.size(); j++){
-
-					tof1 = static_cast<llint> (dssdDataVec1[i].GetTimeStamp() - trackerEventVec[j].GetTimeStamp());
-					h_dssdE_Tof1->Fill(dssdDataVec1[i].GetEnergy(), tof1);
-					h_strip_Tof1->Fill(dssdDataVec1[i].GetStrip(), tof1);
-
-				}
-			}
+		dssdEvents = dEvent->Construct("FB",dssdDataPoints);
+		if(reached_eof){
+			std::vector<DssdEvent> dssdEvents2 = dEvent->GetUnCorrelatedEvents("FB");
+			dssdEvents.insert(dssdEvents.begin(), dssdEvents2.begin(), dssdEvents2.end()); 
+			//sorting is done in correlations
+			//cout<<"dssdPoints: "<<dssdDataPoints.size()<<"  dssdEvents: "<<dssdEvents.size()<<"  dssdEvent2: "<<dssdEvents2.size()<<"  trackerNumexo2Events: "<<trackerNumexo2Events.size()<<"  trackerCoBoEvents:  "<<trackerCoBoEvents.size()<<endl;
+			dssdEvents2.clear();
 		}
-
-		//dssdEventVec1 = dEvent->Construct("F", dssdDataVec1);
-		dssdEventVec1 = dEvent->Construct("F",dssdDataVec1, h_delT_ff, h_delT_fb, h_delT_bf, h_delT_bb);
-		for (std::vector<DssdEvent>::iterator it = dssdEventVec1.begin() ; it != dssdEventVec1.end(); ++it){				
-			h_E_frontsumCorr->Fill((*it).GetEnergyX());
-		}
-
-
+		//if(dssdEvents.size() > 0 && trackerCoBoEvents.size() && trackerNumexo2Events.size() >0){	
 		//----------------------
-		correlation->Find(dssdEventVec, trackerEventVec);
+		//cout<<"here 1"<<endl;
+		if(!reached_eof)correlation->Find(dssdEvents, trackerNumexo2Events, trackerCoBoEvents, 0);
+		else correlation->Find(dssdEvents, trackerNumexo2Events, trackerCoBoEvents, true);
+		//---------------------
+		// Decays
+		//-----------------
+		decayTypeEvents = correlation->GetDecays();
+		recoilTypeEvents = correlation->GetRecoils();
 
-		if(correlation->GetRecoils().size()>0){
-			z2 = 100.;
-			for (std::vector<RecoilEvent>::iterator recoil = correlation->GetRecoils().begin() ; recoil != correlation->GetRecoils().end(); ++recoil){				
+		//cout<<"here 2"<<endl;
+		if(decayTypeEvents.size() >0){
+			for (std::vector<DecayEvent>::iterator decay = decayTypeEvents.begin() ; decay != decayTypeEvents.end(); ++decay){				
 
-				//	cout<<" Ex "<<(*recoil).GetDssdEvent().GetEnergyX()<<" tof "<<(*recoil).GetToF()<<endl;
-				h_dssdEvt_Tof->Fill((*recoil).GetDssdEvent().GetEnergyX(), (*recoil).GetToF());
-
-				//position 1 : at the SED x, y, z
-
-				x1 =(*recoil).GetTrackerEvent().GetBaryCenterXm()/10.;
-				y1 =(*recoil).GetTrackerEvent().GetBaryCenterYm()/10.;
-				z1 =(*recoil).GetTrackerEvent().GetBaryCenterZm()/10.;
-				//position 2 : at the DSSD
-				x2 = (((*recoil).GetDssdEvent().GetPixel().GetX() + 1.) *(10./128.)) - 5.;
-				y2 = (((*recoil).GetDssdEvent().GetPixel().GetY() + 1.) *(10./128.)) -5.;
-
-				x21 = x2 - x1;
-				y21 = y2 - y1;
-				z21 = z2 - z1;
-				distance = TMath::Sqrt(x21*x21 + y21*y21 + z21*z21);
-				h_XDistance->Fill(x1, distance);
-				h_YDistance->Fill(y1, distance);
-
-				h_DSSD_XYPhysical_hit_recoil->Fill(x2,y2);
-				h_DSSD_XY_hit_recoil->Fill((*recoil).GetDssdEvent().GetPixel().GetX(), (*recoil).GetDssdEvent().GetPixel().GetY());
-
-				slopeXZ = x21/z21;
-				slopeYZ = y21/z21;
-				//-------------track fill part starts here--------
-				for(float z=z1;z<=z2;z=z+1.){
-					x = (z -z1)*slopeXZ + x1;
-					y = (z -z1)*slopeYZ + y1;
-					h_trackZSeDX->Fill(z,x);
-					h_trackZSeDY->Fill(z,y);
+				//----------do something here----------------
+				fDecayEvent = (*decay);
+				userTree->FillDecayTTree();
+				//----------plot histograms----------------
+				if(s1->fsaveHisto || s1->acquisitionMode.compare("ONLINE") == 0){
+					h_E_frontBack->Fill((*decay).GetDssdEvent().GetEnergyX(), (*decay).GetDssdEvent().GetEnergyY());
+					h_DSSD_XY_hit->Fill((*decay).GetDssdEvent().GetPixel().GetX(), (*decay).GetDssdEvent().GetPixel().GetY());
 				}
-				//-------------track fill part ends here--------
+			}
+		}
+		//----------------
+		// Recoils
+		//---------------				
+		//cout<<"here 3"<<endl;
+		if(correlation->GetRecoils().size()>0){
+			z2 = 100.;//distance in cm
+			for ( std::vector<RecoilEvent>::iterator recoil = recoilTypeEvents.begin() ; recoil != recoilTypeEvents.end(); ++recoil){				
+				//-----------------
+				// Trajectory
+				//---------------
+				//position 1 : at the SED x, y, z// here they are the projection of 45 degree foil on the XY plane perpendicular to the beam axis (Z) 
+				if((*recoil).HasACoBoEvent() && (*recoil).HasATrackerNumexo2Event() && 
+						(*recoil).GetDssdEvent().GetEnergyX() > 100. && (*recoil).GetDssdEvent().GetEnergyY() > 100. ){
+
+					x1 =(*recoil).GetTrackerCoBoEvent().GetBaryCenterXm()/10.;
+					y1 =(*recoil).GetTrackerCoBoEvent().GetBaryCenterYm()/10.;
+					z1 =(*recoil).GetTrackerCoBoEvent().GetBaryCenterZm()/10.;
+					//position 2 : at the DSSD
+					x2 = (((*recoil).GetDssdEvent().GetPixel().GetX() + 1.) *(10./128.)) - 5.;
+					y2 = (((*recoil).GetDssdEvent().GetPixel().GetY() + 1.) *(10./128.)) - 5.;
+
+					x21 = x2 - x1;
+					y21 = y2 - y1;
+					z21 = z2 - z1;
+
+					distance = TMath::Sqrt(x21*x21 + y21*y21 + z21*z21);
+					slopeXZ = x21/z21;
+					slopeYZ = y21/z21;
+					//----------plot histograms----------------
+					if(s1->fsaveHisto || s1->acquisitionMode.compare("ONLINE") == 0){
+						h_XDistance->Fill(x1, distance);
+						h_YDistance->Fill(y1, distance);
+
+						hbar2DmPRecoil->Fill((*recoil).GetTrackerCoBoEvent().GetBaryCenterXm(), (*recoil).GetTrackerCoBoEvent().GetBaryCenterYm() );
+						h_DSSD_XYPhysical_hit_recoil->Fill(x2,y2);
+						h_DSSD_XY_hit_recoil->Fill((*recoil).GetDssdEvent().GetPixel().GetX(), (*recoil).GetDssdEvent().GetPixel().GetY());
 
 
+						//-------------track fill part starts here--------
+						for(double z = z1; z <= z2; z += 1.){
+							x = (z -z1)*slopeXZ + x1;
+							y = (z -z1)*slopeYZ + y1;
+							h_trackZSeDX->Fill(z,x);
+							h_trackZSeDY->Fill(z,y);
+					//		h_trackXYZ->Fill(z, x, y);
+						}
+						//-------------track fill part ends here--------
+						fRecoilEvent = (*recoil);
+						userTree->FillRecoilTTree();
+						//--------------------------
+						// ToF infor from Numexo2 SeD
+						//-------------------------
+						h_FrontE_ToFNumexo->Fill((*recoil).GetDssdEvent().GetEnergyX(), (*recoil).GetToFNumexo2());
+						h_BackE_ToFNumexo->Fill((*recoil).GetDssdEvent().GetEnergyY(), (*recoil).GetToFNumexo2());
+						h_stripX_ToFNumexo->Fill((*recoil).GetDssdEvent().GetPixel().GetX(), (*recoil).GetToFNumexo2());
+						h_stripY_ToFNumexo->Fill((*recoil).GetDssdEvent().GetPixel().GetY(), (*recoil).GetToFNumexo2());
+
+						h_Efront_Esed->Fill((*recoil).GetDssdEvent().GetEnergyX(), (*recoil).GetTrackerNumexo2Event().GetEnergy());
+						h_Eback_Esed->Fill((*recoil).GetDssdEvent().GetEnergyY(), (*recoil).GetTrackerNumexo2Event().GetEnergy());
+						h_FrontE_CFDToFNumexo->Fill((*recoil).GetDssdEvent().GetEnergyX(), (*recoil).GetCFDToFNumexo2());
+						h_BackE_CFDToFNumexo->Fill((*recoil).GetDssdEvent().GetEnergyY(), (*recoil).GetCFDToFNumexo2());
+						h_stripX_CFDToFNumexo->Fill((*recoil).GetDssdEvent().GetPixel().GetX(), (*recoil).GetCFDToFNumexo2());
+						h_stripY_CFDToFNumexo->Fill((*recoil).GetDssdEvent().GetPixel().GetY(), (*recoil).GetCFDToFNumexo2());
+						h_stripX_Esed->Fill((*recoil).GetDssdEvent().GetPixel().GetX(), (*recoil).GetTrackerNumexo2Event().GetEnergy());
+						h_stripY_Esed->Fill((*recoil).GetDssdEvent().GetPixel().GetY(), (*recoil).GetTrackerNumexo2Event().GetEnergy());
+
+
+
+
+						//-------------------
+						// ToF from CoBo
+						// ----------------
+						h_FrontE_ToFCobo->Fill((*recoil).GetDssdEvent().GetEnergyX(), (*recoil).GetToFCoBo());
+						h_BackE_ToFCobo->Fill((*recoil).GetDssdEvent().GetEnergyY(), (*recoil).GetToFCoBo());
+						h_stripX_ToFCobo->Fill((*recoil).GetDssdEvent().GetPixel().GetX(), (*recoil).GetToFCoBo());
+						h_stripY_ToFCobo->Fill((*recoil).GetDssdEvent().GetPixel().GetY(), (*recoil).GetToFCoBo());
+						//
+						h_E_frontBack->Fill((*recoil).GetDssdEvent().GetEnergyX(), (*recoil).GetDssdEvent().GetEnergyY());
+						h_DSSD_XY_hit->Fill((*recoil).GetDssdEvent().GetPixel().GetX(), (*recoil).GetDssdEvent().GetPixel().GetY());
+					}
+				}
 			}				
-		}
+			//}
 
-		//-------------
-		// Clear memory
-		//-------------
-		dssdDataVec1.clear();
-		trackerNumexoDataVec.clear();
-		dssdEventVec.clear();
-		dssdEventVec1.clear();
-		trackerEventVec.clear();
+			//-------------
+			// Clear memory
+			//-------------
+			dssdDataPoints.clear();
+			dssdEvents.clear();
+			trackerNumexo2Events.clear();
+			trackerCoBoEvents.clear();
+	}
 	}
 }
-void GUser::FindCorrelations_merged(){
-	if(s1->fsaveHisto || s1->acquisitionMode.compare("ONLINE") == 0){
-
-		dssdEventVec_merged = dEvent->Construct("FB", dssdDataVec0_merged, h_delT_ff, h_delT_fb, h_delT_bf, h_delT_bb);
-		for (std::vector<DssdEvent>::iterator it = dssdEventVec_merged.begin() ; it != dssdEventVec_merged.end(); ++it){				
-			h_E_frontBack->Fill((*it).GetEnergyX(), (*it).GetEnergyY());
-			h_DSSD_XY_hit->Fill((*it).GetPixel().GetX(), (*it).GetPixel().GetY());
-		}
-
-	}
-	else { dssdEventVec_merged = dEvent->Construct("FB", dssdDataVec0_merged);}
-
-
-	llint tof1 =0;
-	double tof2 =0;
-	llint tof3 =0;
-
-	if(dssdDataVec1_merged.size() > 0 && trackerNumexoDataVec_merged.size() > 0){
-
-		for(unsigned int i = 0; i < dssdDataVec1_merged.size(); i++){
-			for(unsigned int j = 0; j < trackerNumexoDataVec_merged.size(); j++){
-				tof2 = dssdDataVec1_merged[i].GetCFDTime() - trackerNumexoDataVec_merged[j].GetCFDTime();
-				h_Esi_Esed->Fill(dssdDataVec1_merged[i].GetEnergy(), trackerNumexoDataVec_merged[j].GetEnergy());
-				h_strip_Esed->Fill(dssdDataVec1_merged[i].GetStrip(), trackerNumexoDataVec_merged[j].GetEnergy());
-				h_dssdE_Tof2->Fill(dssdDataVec1_merged[i].GetEnergy(), tof2);
-				h_strip_Tof2->Fill(dssdDataVec1_merged[i].GetStrip(), tof2);
-				//tof = dssd timestamp - Sed Numexo timestamp
-				tof3 = static_cast<llint>(dssdDataVec1_merged[i].GetTimeStamp() - trackerNumexoDataVec_merged[j].GetTimeStamp());
-				h_dssdE_Tof3->Fill(dssdDataVec1_merged[i].GetEnergy(), tof3);
-				h_strip_Tof3->Fill(dssdDataVec1_merged[i].GetStrip(), tof3);
-
-			}
-		}
-	}
-
-
-
-	// with timestamps
-	if(dssdDataVec1_merged.size() > 0 && trackerEventVec_merged.size() > 0){
-		for(unsigned int i = 0; i < dssdDataVec1_merged.size(); i++){
-			for(unsigned int j = 0; j < trackerEventVec_merged.size(); j++){
-
-				tof1 = static_cast<llint> (dssdDataVec1_merged[i].GetTimeStamp() - trackerEventVec_merged[j].GetTimeStamp());
-
-				h_dssdE_Tof1->Fill(dssdDataVec1_merged[i].GetEnergy(), tof1);
-				h_strip_Tof1->Fill(dssdDataVec1_merged[i].GetStrip(), tof1);
-
-			}
-		}
-
-
-	}
-
-	dssdEventVec1_merged = dEvent->Construct("F", dssdDataVec1_merged);
-	for (std::vector<DssdEvent>::iterator it = dssdEventVec1_merged.begin() ; it != dssdEventVec1_merged.end(); ++it){				
-		h_E_frontsumCorr->Fill((*it).GetEnergyX());
-	}
-
-
-
-	//	cout<< "dssd event vec size merged : "<<dssdEventVec_merged.size()<< " tracker size "<<trackerEventVec_merged.size()<<endl;
-	correlation->Find(dssdEventVec_merged, trackerEventVec_merged);
-	// correlation between dssd events (x,y) and tracker events (x,y)
-
-	if(correlation->GetRecoils().size()>0){
-		z2 = 100.;
-		for (std::vector<RecoilEvent>::iterator recoil = correlation->GetRecoils().begin() ; recoil != correlation->GetRecoils().end(); ++recoil){				
-
-			//cout<<" Ex "<<(*recoil).GetDssdEvent().GetEnergyX()<<" tof "<<(*recoil).GetToF()<<endl;
-			h_dssdEvt_Tof->Fill((*recoil).GetDssdEvent().GetEnergyX(), (*recoil).GetToF());
-
-			//position 1 : at the SED x, y, z
-
-			x1 =(*recoil).GetTrackerEvent().GetBaryCenterXm()/10.;
-			y1 =(*recoil).GetTrackerEvent().GetBaryCenterYm()/10.;
-			z1 =(*recoil).GetTrackerEvent().GetBaryCenterZm()/10.;
-			//position 2 : at the DSSD
-			x2 = (((*recoil).GetDssdEvent().GetPixel().GetX() + 1.) *(10./128.)) - 5.;
-			y2 = (((*recoil).GetDssdEvent().GetPixel().GetY() + 1.) *(10./128.)) -5.;
-
-			x21 = x2 - x1;
-			y21 = y2 - y1;
-			z21 = z2 - z1;
-			distance = TMath::Sqrt(x21*x21 + y21*y21 + z21*z21);
-			h_XDistance->Fill(x1, distance);
-			h_YDistance->Fill(y1, distance);
-
-			h_DSSD_XYPhysical_hit_recoil->Fill(x2,y2);
-			h_DSSD_XY_hit_recoil->Fill((*recoil).GetDssdEvent().GetPixel().GetX(), (*recoil).GetDssdEvent().GetPixel().GetY());
-
-			slopeXZ = x21/z21;
-			slopeYZ = y21/z21;
-			//-------------track fill part starts here--------
-			for(float z=z1;z<=z2;z=z+1.){
-				x = (z -z1)*slopeXZ + x1;
-				y = (z -z1)*slopeYZ + y1;
-				h_trackZSeDX->Fill(z,x);
-				h_trackZSeDY->Fill(z,y);
-			}
-			//-------------track fill part ends here--------
-
-
-		}				
-	}
-	//-------------
-	// Clear memory
-	//-------------
-	dssdDataVec1_merged.clear();
-	trackerNumexoDataVec_merged.clear();
-	dssdEventVec_merged.clear();
-	dssdEventVec1_merged.clear();
-	trackerEventVec_merged.clear();
-}
-
+//---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 
 void GUser::PrintInfo(MFMCommonFrame *commonframe){
 	switch (s1->fverbose)
@@ -1169,3 +1126,5 @@ void GUser::PrintInfo(MFMCommonFrame *commonframe){
 	}
 }
 
+//---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
+//---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------

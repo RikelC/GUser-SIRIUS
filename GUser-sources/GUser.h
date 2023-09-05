@@ -41,13 +41,13 @@
 #include "Calibration.h"
 #include "DssdDataPoint.h"
 #include "Correlation.h"
-#include "TrackerNumexo2DataPoint.h"
+#include "TrackerNumexo2Event.h"
 #include "TunnelDataPoint.h"
 #include "MakeDssdEvents.h"
 #include "MakeTunnelEvents.h"
 #include "TimeAlignment.h"
 #include "UTTree.h"
-#include "TrackerData.h"
+#include "TrackerCoBoData.h"
 #include <fstream>
 #include <sstream>
 #include <map>
@@ -100,10 +100,12 @@ class GUser : public  GAcq{
 		//dssdEvent                 * trEvent;
 		MakeTunnelEvents          * tEvent;/*!<tunnelEvent object*/
 		TunnelData                * tData;/*!< tunnelData object*/
-		TrackerData               * coboData;
+		TrackerCoBoData               * coboData;
 		TimeAlignment             * timeAlign;
 		Correlation               * correlation;
 		UTTree                    * userTree;
+		RecoilEvent  fRecoilEvent;
+		DecayEvent  fDecayEvent;
 		//----------------------------
 		// DSSD Histogram pointers
 		//----------------------------
@@ -129,11 +131,12 @@ class GUser : public  GAcq{
 		TH1I       * h_delT_bb;
 		TH1F       * h_sum_front;
 		TH1F       * h_sum_back;
-		TH1F       * h_E_frontsumCorr;
 		//------ 2D Histograms ---
 		TH2F     *** hCFD; //!
 		TH2F     *** hTrap; //!
 		TH2F     *** hTrace_Sum ;  //! -- this silences the error
+		TH2F *hCFDTimeDiff[16];
+		//TH2F* hToFabove5;
 		TH2F       * h_E_frontBack;
 		TH2I       * h_DSSD_XY_hit;
 		TH2I       * h_DSSD_XY_hit_recoil;
@@ -142,18 +145,30 @@ class GUser : public  GAcq{
 		TH2F       * h_raw_strip;
 		TH2F       * h_dssd_baseline;
 		TH2F       * h_dssd_noise;
-		TH2F       * h_dssdE_Tof1; 
-		TH2F       * h_strip_Tof1;
-		TH2F       * h_dssdE_Tof2;
-		TH2F       * h_strip_Tof2;
-		TH2F       * h_strip_trigger;
-		TH2F       * h_dssdE_Tof3;
-		TH2F       * h_strip_Tof3;
-		TH2F       * h_dssdEvt_Tof;
+
+
+		TH2F       * h_FrontE_ToFNumexo; 
+		TH2F       * h_BackE_ToFNumexo; 
+		TH2F       * h_FrontE_CFDToFNumexo; 
+		TH2F       * h_BackE_CFDToFNumexo; 
+		TH2F       * h_stripX_ToFNumexo;
+		TH2F       * h_stripY_ToFNumexo;
+		TH2F       * h_stripX_CFDToFNumexo;
+		TH2F       * h_stripY_CFDToFNumexo;
+		TH2F       * h_Efront_Esed;
+		TH2F       * h_Eback_Esed;
+		TH2F       * h_stripX_Esed;
+		TH2F       * h_stripY_Esed;
+		TH2F       * h_FrontE_ToFCobo; 
+		TH2F       * h_BackE_ToFCobo; 
+		TH2F       * h_stripX_ToFCobo; 
+		TH2F       * h_stripY_ToFCobo; 
 		TH2F       * h_trackZSeDX;
 		TH2F       * h_trackZSeDY;
+		//TH3F       * h_trackXYZ;
 		TH2F       * h_XDistance;
 		TH2F       * h_YDistance;
+
 		TH2F       * h_front_traceGS;
 		TH2F       * h_back_traceGS;
 		TH2F       * h_front_traceNGS;
@@ -162,14 +177,13 @@ class GUser : public  GAcq{
 		TH2F       * h_back_rNGS;
 		TH2F       * h_front_rGS;
 		TH2F       * h_back_rGS;
+		TH2F       * h_strip_trigger;
 		TH2F       * h_strip_zeroCrTime;
 		TH2F       * h_board_zeroCrTime;
 		TH2F       * h_strip_MaxPosTime;
 		TH2F       * h_board_MaxPosTime;
 		TH2F       * h_E_MaxPosTime;
 		TH2F       * h_E_zeroCrTime;
-		TH2F       * h_Esi_Esed;
-		TH2F       * h_strip_Esed;
 		TH2F       * h_strip_SignalHeight;
 		//------ Graphs ---
 		TGraph   *** grTimestamp;//!		
@@ -231,6 +245,7 @@ class GUser : public  GAcq{
 		TH2F       * hmult_xy;
 		TH2F       * hbar2Dm;
 		TH2F       * hbar2DmP;
+		TH2F       * hbar2DmPRecoil;
 		//TH2F     * hbarcosh2Dm;	
 		TH2F       * hsum_xy;
 		//------------------
@@ -282,7 +297,7 @@ class GUser : public  GAcq{
 		//ULong64_t    Timetracker; // testing stuff....			
 		//ULong64_t    Timedssd;			
 		DssdDataPoint   dPoint;
-		TrackerNumexo2DataPoint   sedPoint;
+		TrackerNumexo2Event   sedNumexo2Event;
 		TunnelDataPoint tPoint;
 		TunnelDataPoint prev_tPoint;
 
@@ -293,41 +308,38 @@ class GUser : public  GAcq{
 		double slopeXZ =0, slopeYZ =0.;
 		double x=0., y=0.;
 		bool reached_eof;
-llint jitter;
+		llint jitter;
 		//----------------------------------
 		// Bufferes for making Correlations
 		//----------------------------------
-		// for Non-Merged frames
-		std::vector<DssdDataPoint>dssdDataVec0;// for pixel construction
+		std::vector<DssdDataPoint>dssdDataPointVec;// for pixel construction
+		std::vector<DssdDataPoint>dssdDataPointVec_merged;
 
-		std::vector<DssdDataPoint>dssdDataVec1;// for correletion with front strips
-		std::vector<TrackerNumexo2DataPoint>trackerNumexoDataVec;
+		std::vector<TrackerNumexo2Event>trackerNumexo2EventVec;
+		std::vector<TrackerNumexo2Event>trackerNumexo2EventVec_merged;
+
+		std::vector<TrackerCoBoEvent>trackerCoBoEventVec;
+		std::vector<TrackerCoBoEvent>trackerCoBoEventVec_merged;
 
 		std::vector<TunnelDataPoint>tunnelDataVec;
-		std::vector<DssdEvent>dssdEventVec;
-		std::vector<DssdEvent>dssdEventVec1;
-		std::vector<TrackerEvent>trackerEventVec;
-		// for MergeD frames
-		std::vector<DssdDataPoint>dssdDataVec0_merged;
-
-		std::vector<DssdDataPoint>dssdDataVec1_merged;
-		std::vector<TrackerNumexo2DataPoint>trackerNumexoDataVec_merged;
-
 		std::vector<TunnelDataPoint>tunnelDataVec_merged;
+
+		std::vector<DssdEvent>dssdEventVec;
 		std::vector<DssdEvent>dssdEventVec_merged;
-		std::vector<DssdEvent>dssdEventVec1_merged;
-		std::vector<TrackerEvent>trackerEventVec_merged;
+		std::vector<RecoilEvent> recoilTypeEvents;
+		std::vector<DecayEvent> decayTypeEvents;
 		//-------------------
 		// Private Methods
 		//-------------------
 		void get_Count_Rates(int type);
-		void FindCorrelations_unmerged();
-		void FindCorrelations_merged();
+		void FindCorrelations(std::string mode);
+		void FindCorrelationsIn(std::vector<DssdDataPoint> &dssdDataPoints, std::vector<DssdEvent> &dssdEvents, std::vector<TrackerNumexo2Event> &trackerNumexo2Events, std::vector<TrackerCoBoEvent> &trackerCoboEvents);
 		void CreateHistograms();
 		void DeleteHistograms();
 		void ResetHistograms();
 		void PrintInfo(MFMCommonFrame *commonframe);
 
+		void CreateAnalysisHistograms ();
 	public:
 		static GUser *g_instance;
 		GUser(int mode , GDevice* _fDevIn= NULL, GDevice* _fDevOut= NULL) ;   // default constructor of GUser object
