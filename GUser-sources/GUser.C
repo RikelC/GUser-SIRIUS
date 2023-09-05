@@ -349,17 +349,17 @@ void GUser::UserFrame(MFMCommonFrame* commonframe){
 	else if ((type == MFM_COBO_FRAME_TYPE) or (type== MFM_COBOF_FRAME_TYPE)) {
 		frameCounter[0]++;
 		UserCoboFrame(commonframe);
-		//userTree->FillCoBoFrames();
+		userTree->FillCoBoFrames();
 	}
 	else if (type == MFM_SIRIUS_FRAME_TYPE){
 		frameCounter[6]++;
 		UserSiriusFrame(commonframe);
-		//userTree->FillSiriusFrames();
+		userTree->FillSiriusFrames();
 	}
 	else if(type == MFM_REA_GENE_FRAME_TYPE){
 		frameCounter[5]++;
 		UserGenericFrame(commonframe);
-		//	userTree->FillReaGenericFrames();
+		userTree->FillReaGenericFrames();
 	}
 
 }
@@ -841,8 +841,10 @@ void GUser::InitTTreeUser()
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
 void GUser::InitUserTTree(char* filename)
 {
-	//userTree->Initialize(filename, dData, tData, coboData);
-	userTree->Initialize(filename, fRecoilEvent, fDecayEvent);
+	if(s1->fTreeType == "CORRELATION")
+		userTree->Initialize(filename, fRecoilEvent, fDecayEvent);
+	else
+		userTree->Initialize(filename, dData, tData, coboData);
 }
 
 //---------------ooooooooooooooo---------------ooooooooooooooo---------------ooooooooooooooo---------------
@@ -1019,7 +1021,7 @@ void GUser::FindCorrelationsIn(std::vector<DssdDataPoint> &dssdDataPoints, std::
 							y = (z -z1)*slopeYZ + y1;
 							h_trackZSeDX->Fill(z,x);
 							h_trackZSeDY->Fill(z,y);
-					//		h_trackXYZ->Fill(z, x, y);
+							//		h_trackXYZ->Fill(z, x, y);
 						}
 						//-------------track fill part ends here--------
 						fRecoilEvent = (*recoil);
@@ -1066,6 +1068,9 @@ void GUser::FindCorrelationsIn(std::vector<DssdDataPoint> &dssdDataPoints, std::
 			dssdEvents.clear();
 			trackerNumexo2Events.clear();
 			trackerCoBoEvents.clear();
+			recoilTypeEvents.clear();
+			decayTypeEvents.clear();
+			correlation->Clear();
 	}
 	}
 }
